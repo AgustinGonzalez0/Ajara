@@ -1,6 +1,9 @@
 allprojects {
     repositories {
         google()
+        // repo1.maven.org es el mismo Maven Central; va antes porque repo.maven.apache.org
+        // no responde desde la red de desarrollo (ver docs/ENTORNO.md).
+        maven { url = uri("https://repo1.maven.org/maven2") }
         mavenCentral()
     }
 }

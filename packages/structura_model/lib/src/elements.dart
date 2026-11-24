@@ -70,7 +70,7 @@ abstract class BuildingElement {
           sillHeightM: readOptionalDouble(j, 'sill_height_m'),
         );
       case ElementKind.column:
-        return Column(
+        return ColumnElement(
           id: id,
           source: source,
           confidence: confidence,
@@ -168,10 +168,10 @@ class Opening extends BuildingElement {
       };
 }
 
-class Column extends BuildingElement {
+class ColumnElement extends BuildingElement {
   final Rect2 footprint;
   final bool round;
-  const Column({required super.id, required super.source, super.confidence, required this.footprint, this.round = false});
+  const ColumnElement({required super.id, required super.source, super.confidence, required this.footprint, this.round = false});
   @override
   ElementKind get kind => ElementKind.column;
   @override

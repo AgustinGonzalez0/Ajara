@@ -219,7 +219,7 @@ class MeshBuilder {
               parts['window']!.addBox((cx - t) * k, r.top * k, (cx + t) * k, r.bottom * k, a.windowSill, a.windowHead, o.id);
             }
           }
-        case Column c:
+        case ColumnElement c:
           final r = c.footprint;
           parts['column']!.addBox(r.left * k, r.top * k, r.right * k, r.bottom * k, 0, a.wallHeight, c.id);
         case Stairs s:

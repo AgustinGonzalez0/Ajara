@@ -20,7 +20,7 @@ BuildingModel sample({List<BuildingElement>? elements, PlanScale? scale}) => Bui
                   type: OpeningType.door,
                   footprint: Rect2(100, 4, 160, 16),
                   hostWallId: 'w1'),
-              Column(id: 'c1', source: Source(Provenance.userCreated), footprint: Rect2(300, 300, 320, 320)),
+              ColumnElement(id: 'c1', source: Source(Provenance.userCreated), footprint: Rect2(300, 300, 320, 320)),
               Stairs(id: 's1', source: ai, confidence: 0.5, footprint: Rect2(600, 400, 700, 600)),
             ]),
       ],

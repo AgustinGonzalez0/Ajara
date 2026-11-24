@@ -38,6 +38,11 @@ android {
     }
 }
 
+dependencies {
+    // ONNX Runtime oficial (Microsoft, licencia MIT): inferencia local en CPU.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.32.0")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

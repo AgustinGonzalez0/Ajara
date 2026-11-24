@@ -129,7 +129,7 @@ class Vectorizer {
           final r = c.rect;
           final aspect = r.width > r.height ? r.width / r.height : r.height / r.width;
           final fill = c.pixels / (r.width * r.height);
-          elements.add(Column(
+          elements.add(ColumnElement(
               id: 'c${(++nc).toString().padLeft(4, '0')}',
               source: source,
               confidence: c.meanConfidence,

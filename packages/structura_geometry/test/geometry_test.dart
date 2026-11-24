@@ -50,7 +50,7 @@ void main() {
       expect(host.start.y, 15.0); // muro superior
       final window = r.elements.whereType<Opening>().firstWhere((o) => o.type == OpeningType.window);
       expect(walls.firstWhere((w) => w.id == window.hostWallId).start.y, 135.0);
-      expect(r.elements.whereType<Column>().single.footprint.toJson(), [40.0, 40.0, 52.0, 52.0]);
+      expect(r.elements.whereType<ColumnElement>().single.footprint.toJson(), [40.0, 40.0, 52.0, 52.0]);
       expect(r.elements.whereType<Stairs>().single.footprint.width, 40);
       expect(r.relations.length, 2);
       expect(r.warnings, isEmpty);
