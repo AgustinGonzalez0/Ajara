@@ -51,3 +51,21 @@ No se implementó ningún cambio de loss: hace falta aprobación.
 - [ ] Aprobar B como experimento (con A como línea base), o
 - [ ] Mantener A hasta tener el primer lote real, o
 - [ ] Otra opción (C/D/E).
+
+## 5. Resultado del experimento A vs B (2026-11-24, dataset vectorial v1)
+
+Mismo dataset (28 511 tiles de plantas reales de Swiss Dwellings dibujadas con estilos
+variados, splits por sitio), misma receta (U-Net Small base 16, AdamW 1e-3, batch 4, AMP,
+20 épocas, aumentos fotométricos en ambos). Solo cambia la función de pérdida.
+
+| Validación (mejor época) | mIoU | Muro | Puerta | Ventana | Columna | Escalera |
+|---|---:|---:|---:|---:|---:|---:|
+| **A · CE sin pesos (especificación 0.1)** | **0,858** | **0,930** | **0,737** | **0,932** | **0,598** | **0,958** |
+| B · CE ponderada ENet | 0,800 | 0,887 | 0,541 | 0,905 | 0,560 | 0,923 |
+
+Con un dataset grande y con proporciones de clase reales (puertas 0,76 %, ventanas 1,4 %),
+**la CE sin pesos supera a la ponderada en todas las clases**. El colapso medido en la
+sección 1 venía del dataset sintético chico (47 tiles), no de la función de pérdida.
+
+**Recomendación actualizada: mantener A (especificación 0.1) y cerrar D-18 sin cambios.**
+`--class-weights enet` queda disponible como opción, apagada por defecto.

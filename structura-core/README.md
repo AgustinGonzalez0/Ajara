@@ -23,7 +23,7 @@ revisión: ver `../docs/EVALUACION_LOSS.md`.
 
 ## Uso (Windows)
 ```powershell
-cd $env:USERPROFILE\Desktop\STRUCTURA\structura-core
+cd $env:USERPROFILE\Desktop\Ajara\structura-core
 ..\.venv\Scripts\python.exe -m core.train --dataset ..\data\dataset --output ..\data\runs\vision_ai_0_1
 ..\.venv\Scripts\python.exe -m core.evaluate --checkpoint ..\data\runs\vision_ai_0_1\best.pt --dataset ..\data\dataset --split test
 ..\.venv\Scripts\python.exe -m core.predict --model ..\data\runs\vision_ai_0_1\best.pt --input plano.png --output pred

@@ -288,9 +288,10 @@ void main() {
     await settle(t, rounds: 20);
     await t.tap(find.text('Configuración').last);
     await settle(t);
-    expect(find.text('Runtime de IA (ONNX Runtime)'), findsOneWidget);
-    expect(find.text('NO DISPONIBLE'), findsNWidgets(2)); // en el host de tests no hay Android
+    expect(find.byKey(const Key('engine_setting')), findsOneWidget);
     await t.scrollUntilVisible(find.text('PRUEBA'), 200);
     expect(find.text('DATOS: SYNTHETIC'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('Runtime de IA (ONNX Runtime)'), 200);
+    expect(find.text('NO DISPONIBLE'), findsNWidgets(2)); // en el host de tests no hay Android
   });
 }

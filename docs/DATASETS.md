@@ -60,7 +60,7 @@ D-17 y de tu decisión sobre anotación manual o asistida).
 
 ## Reproducir
 ```powershell
-$R = "$env:USERPROFILE\Desktop\STRUCTURA"
+$R = "$env:USERPROFILE\Desktop\Ajara"
 cd $R\structura-data
 ..\.venv\Scripts\python.exe -m tools.vector_sources swiss --zip $R\data\external\swiss_dwellings\swiss-dwellings-v3.0.0.zip --cache $R\data\vector_cache\swiss --limit 1500
 ..\.venv\Scripts\python.exe -m tools.build_vector_dataset --cache $R\data\vector_cache\swiss --output $R\data\dataset_vector_v1 --workers 8 --overwrite

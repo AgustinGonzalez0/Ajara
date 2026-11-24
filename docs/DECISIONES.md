@@ -5,7 +5,7 @@ Las decisiones de structura-data están en `structura-data/docs/DECISIONES_TECNI
 
 | # | Decisión | Motivo | Reversible |
 |---|---|---|---|
-| D-01 | Monorepo git (hoy en `%USERPROFILE%\Desktop\STRUCTURA`, antes `$env:USERPROFILE\Desktop\STRUCTURA`); `main` conserva los paquetes originales intactos, el trabajo va en `develop` | conservar versiones originales y trazabilidad | sí |
+| D-01 | Monorepo git (hoy en `%USERPROFILE%\Desktop\Ajara`, antes `$env:USERPROFILE\Desktop\Ajara`); `main` conserva los paquetes originales intactos, el trabajo va en `develop` | conservar versiones originales y trazabilidad | sí |
 | D-02 | Python 3.14 + PyTorch 2.11.0+cu128 (en lugar de 3.11) | 3.11 no está instalado; hay wheels oficiales cu128 para 3.14 con sm_120; código compatible con 3.11 | sí |
 | D-03 | Runtime de IA en el dispositivo en **Dart puro + Kotlin**: el tiling y la geometría en Dart, solo la inferencia en ONNX Runtime nativo | testeable en PC sin Android; misma rejilla que Python; el runtime se puede sustituir | sí |
 | D-04 | ONNX Runtime Android **1.32.0** vía Maven (`repo1.maven.org`), CPU, 4 hilos. **No NNAPI/NPU** | NNAPI está deprecado; la compatibilidad de operadores con el NPU del S26 Ultra no está verificada → se mide primero en CPU | sí |

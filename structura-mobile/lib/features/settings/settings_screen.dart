@@ -41,6 +41,27 @@ class SettingsScreen extends ConsumerWidget {
                   onChanged: (v) => ref.read(settingsProvider.notifier).setDarkMode(v),
                 ),
                 const Divider(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Motor al importar un plano'),
+                    const SizedBox(height: 4),
+                    Text('Clásico: instantáneo, mejor con muros macizos. IA: más precisa con cualquier estilo de dibujo; '
+                        'tarda unos segundos. Si el teléfono no puede usar IA, se usa el clásico.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    const SizedBox(height: 8),
+                    SegmentedButton<DefaultEngine>(
+                      key: const Key('engine_setting'),
+                      segments: const [
+                        ButtonSegment(value: DefaultEngine.classic, label: Text('Clásico'), icon: Icon(Icons.bolt_rounded)),
+                        ButtonSegment(value: DefaultEngine.ai, label: Text('IA'), icon: Icon(Icons.auto_awesome_rounded)),
+                      ],
+                      selected: {s.engine},
+                      onSelectionChanged: (v) => ref.read(settingsProvider.notifier).setEngine(v.first),
+                    ),
+                  ]),
+                ),
+                const Divider(),
                 ListTile(
                   title: const Text('Resolución de PDF por defecto'),
                   subtitle: const Text('200 DPI coincide con el dataset de entrenamiento'),
@@ -60,7 +81,7 @@ class SettingsScreen extends ConsumerWidget {
               child: ListTile(
                 leading: const Icon(Icons.folder_outlined),
                 title: usage.when(
-                  data: (u) => Text('${u.$1} proyectos · ${formatBytes(u.$2)}', style: const TextStyle(fontFeatures: tabular)),
+                  data: (u) => Text('${u.$1} ${u.$1 == 1 ? 'proyecto' : 'proyectos'} · ${formatBytes(u.$2)}', style: const TextStyle(fontFeatures: tabular)),
                   loading: () => const Text('Calculando…'),
                   error: (e, _) => Text('No disponible: $e'),
                 ),
@@ -80,7 +101,7 @@ class SettingsScreen extends ConsumerWidget {
                         Text('${m.descriptor.id} · v${m.descriptor.version}', style: t.textTheme.titleSmall),
                         const SizedBox(height: Gap.sm),
                         Wrap(spacing: 6, runSpacing: 6, children: [
-                          StatusPill(m.descriptor.isTestModel ? 'PRUEBA' : 'PRODUCCIÓN',
+                          StatusPill(m.descriptor.isTestModel ? (m.descriptor.trainingData == 'rendered' ? 'EN VALIDACIÓN' : 'PRUEBA') : 'PRODUCCIÓN',
                               color: m.descriptor.isTestModel ? StructuraColors.warning : StructuraColors.success),
                           StatusPill('DATOS: ${m.descriptor.trainingData.toUpperCase()}', color: StructuraColors.textMuted),
                           StatusPill(m.hashVerified ? 'SHA-256 OK' : 'SHA-256 FALLÓ',

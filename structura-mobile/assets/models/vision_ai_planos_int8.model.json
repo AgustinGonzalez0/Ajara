@@ -1,0 +1,67 @@
+{
+  "format": "structura-model/1",
+  "id": "vision_ai_planos_int8",
+  "version": "0.2.0",
+  "task": "semantic_segmentation",
+  "file": "vision_ai_planos_int8.onnx",
+  "sha256": "a79f86a621bbc6f4c9dc0946a6b8103e17757b3f0d7073466128f65aa6c3129f",
+  "bytes": 2010977,
+  "input": {
+    "name": "image",
+    "shape": [
+      1,
+      3,
+      512,
+      512
+    ],
+    "dtype": "float32",
+    "layout": "NCHW",
+    "color": "RGB",
+    "scale": "x/255",
+    "pad_value": 255
+  },
+  "output": {
+    "name": "logits",
+    "shape": [
+      1,
+      6,
+      512,
+      512
+    ]
+  },
+  "classes": [
+    "background",
+    "wall",
+    "door",
+    "window",
+    "column",
+    "stairs"
+  ],
+  "tiling": {
+    "tile": 512,
+    "overlap": 64
+  },
+  "opset": 17,
+  "training": {
+    "data": "rendered",
+    "epoch": 20,
+    "val_miou": 0.8578483162017047,
+    "production_ready": false
+  },
+  "parity": {
+    "samples": 3,
+    "max_abs_logit_diff": 1.531839370727539e-05,
+    "argmax_agreement_min": 0.9999961853027344,
+    "onnxruntime": "1.32.0"
+  },
+  "notes": "U-Net Small (base 16). Entrenado con 1 499 plantas reales de Swiss Dwellings (CC BY 4.0) dibujadas por STRUCTURA con estilos variados; CrossEntropy sin pesos (especificación 0.1), 20 épocas. mIoU validación 0,858. Convención de puertas: vano.",
+  "quantization": {
+    "type": "int8_static_qdq",
+    "calibration_tiles": 200,
+    "fp32_bytes": 7774449,
+    "tiles": 64,
+    "argmax_agreement_mean": 0.999331533908844,
+    "argmax_agreement_min": 0.997344970703125,
+    "int8_miou": 0.8578069988898718
+  }
+}

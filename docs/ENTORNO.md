@@ -23,13 +23,13 @@ algunas decisiones viejas (visor 3D propio, PdfRenderer nativo) se tomaron sin p
 Con la red disponible se sumaron `share_plus` y `pdf` (ver DECISIONES.md).
 
 ## Ubicación del proyecto
-El monorepo está en `%USERPROFILE%\Desktop\STRUCTURA` (antes `C:\STRUCTURA`). El venv de Python
+El monorepo está en `%USERPROFILE%\Desktop\Ajara` (antes `C:\STRUCTURA` y `Desktop\STRUCTURA`). El venv de Python
 se movió con él y funciona (`python -m ...`); los ejecutables auxiliares del venv (`pip.exe`)
 guardan la ruta vieja: usar `.venv\Scripts\python.exe -m pip`.
 
 ## Comandos de verificación
 ```powershell
 flutter doctor -v
-$env:USERPROFILE\Desktop\STRUCTURA\.venv\Scripts\python.exe -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_arch_list())"
+$env:USERPROFILE\Desktop\Ajara\.venv\Scripts\python.exe -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_arch_list())"
 C:\Users\Agusr\AppData\Local\Android\sdk\emulator\emulator.exe -list-avds
 ```

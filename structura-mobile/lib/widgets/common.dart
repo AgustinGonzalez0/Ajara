@@ -306,3 +306,14 @@ class QuickTile extends StatelessWidget {
     );
   }
 }
+
+/// Etapa de un modelo según con qué datos se entrenó (nunca "producción" sin datos reales validados).
+String modelStage(String trainingData, bool isTestModel) {
+  if (!isTestModel) return 'PRODUCCIÓN';
+  return switch (trainingData) {
+    'rendered' => 'EN VALIDACIÓN',
+    'synthetic' => 'MODELO DE PRUEBA',
+    'untrained' => 'SIN ENTRENAR',
+    _ => 'NO VALIDADO',
+  };
+}

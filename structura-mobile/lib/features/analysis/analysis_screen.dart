@@ -189,8 +189,10 @@ class _ModelTile extends StatelessWidget {
                 Text('${d.id} · v${d.version}', style: t.textTheme.titleSmall),
                 const SizedBox(height: 4),
                 Wrap(spacing: 6, runSpacing: 6, children: [
-                  StatusPill(d.isTestModel ? 'MODELO DE PRUEBA' : 'PRODUCCIÓN',
+                  StatusPill(modelStage(d.trainingData, d.isTestModel),
                       color: d.isTestModel ? StructuraColors.warning : StructuraColors.success, icon: Icons.science_outlined),
+                  if (d.valMiou != null)
+                    StatusPill('mIoU ${d.valMiou!.toStringAsFixed(2).replaceAll('.', ',')}', color: StructuraColors.teal),
                   StatusPill(m.hashVerified ? 'SHA-256 OK' : 'SHA-256 NO VERIFICADO',
                       color: m.hashVerified ? StructuraColors.success : StructuraColors.danger),
                   StatusPill('${d.tile}px · overlap ${d.overlap}', color: StructuraColors.textMuted),

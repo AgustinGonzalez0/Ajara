@@ -25,3 +25,7 @@ data/
 packages/*/.dart_tool/
 packages/*/pubspec.lock
 packages/*/tool/*.pgm
+
+# Planos del usuario (privados): nunca versionar
+/ARCHIVOS SOTO MMO COLEGIO/
+/ARCHIVOS SOTO MMO COLEGIO.zip

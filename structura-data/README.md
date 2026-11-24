@@ -29,7 +29,7 @@ Este paquete prepara datos. **No** evalúa calidad semántica (eso requiere revi
 Requiere Python 3.11 (recomendado). También se probó en 3.14.
 
 ```powershell
-cd $env:USERPROFILE\Desktop\STRUCTURA\structura-data
+cd $env:USERPROFILE\Desktop\Ajara\structura-data
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -84,7 +84,7 @@ structura_dataset_tools\
 Espacio de trabajo recomendado para los datos, fuera del código:
 
 ```
-$env:USERPROFILE\Desktop\STRUCTURA\structura-data\
+$env:USERPROFILE\Desktop\Ajara\structura-data\
   incoming\<project_id>\    archivos originales tal como llegan (no se modifican)
   work\raw\                 PNG canónicos (lo que se anota)
   work\plans.csv            registro de planos
@@ -98,7 +98,7 @@ $env:USERPROFILE\Desktop\STRUCTURA\structura-data\
 ## 3. Flujo de trabajo
 
 Todos los comandos se ejecutan desde la carpeta del paquete con el venv activado. Abajo,
-`$D` es la carpeta de datos: `$D = "$env:USERPROFILE\Desktop\STRUCTURA\structura-data"`.
+`$D` es la carpeta de datos: `$D = "$env:USERPROFILE\Desktop\Ajara\structura-data"`.
 
 ### 3.1 Importar planos
 ```powershell

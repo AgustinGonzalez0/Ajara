@@ -105,11 +105,22 @@ void refreshProject(WidgetRef ref, String id) {
 }
 
 // ---------------------------------------------------------------- Ajustes
+/// Motor que se usa automáticamente al importar un plano.
+enum DefaultEngine { classic, ai }
+
 class AppSettings {
   final bool onboardingDone;
   final double pdfDpi;
   final bool darkMode;
-  const AppSettings({this.onboardingDone = false, this.pdfDpi = defaultPdfDpi, this.darkMode = true});
+  final DefaultEngine engine;
+  const AppSettings(
+      {this.onboardingDone = false, this.pdfDpi = defaultPdfDpi, this.darkMode = true, this.engine = DefaultEngine.classic});
+
+  AppSettings copyWith({bool? onboardingDone, double? pdfDpi, bool? darkMode, DefaultEngine? engine}) => AppSettings(
+      onboardingDone: onboardingDone ?? this.onboardingDone,
+      pdfDpi: pdfDpi ?? this.pdfDpi,
+      darkMode: darkMode ?? this.darkMode,
+      engine: engine ?? this.engine);
 }
 
 class SettingsNotifier extends Notifier<AppSettings> {
@@ -121,22 +132,28 @@ class SettingsNotifier extends Notifier<AppSettings> {
       onboardingDone: p.getBool('onboarding_done') ?? false,
       pdfDpi: p.getDouble('pdf_dpi') ?? defaultPdfDpi,
       darkMode: p.getBool('dark_mode') ?? true,
+      engine: p.getString('default_engine') == 'ai' ? DefaultEngine.ai : DefaultEngine.classic,
     );
+  }
+
+  Future<void> setEngine(DefaultEngine e) async {
+    await _p.setString('default_engine', e.name);
+    state = state.copyWith(engine: e);
   }
 
   Future<void> completeOnboarding() async {
     await _p.setBool('onboarding_done', true);
-    state = AppSettings(onboardingDone: true, pdfDpi: state.pdfDpi, darkMode: state.darkMode);
+    state = state.copyWith(onboardingDone: true);
   }
 
   Future<void> setPdfDpi(double dpi) async {
     await _p.setDouble('pdf_dpi', dpi);
-    state = AppSettings(onboardingDone: state.onboardingDone, pdfDpi: dpi, darkMode: state.darkMode);
+    state = state.copyWith(pdfDpi: dpi);
   }
 
   Future<void> setDarkMode(bool v) async {
     await _p.setBool('dark_mode', v);
-    state = AppSettings(onboardingDone: state.onboardingDone, pdfDpi: state.pdfDpi, darkMode: v);
+    state = state.copyWith(darkMode: v);
   }
 }
 

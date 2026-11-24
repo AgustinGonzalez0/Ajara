@@ -47,5 +47,19 @@ Future<String> exportAndShareReport(WidgetRef ref, String projectId) async {
   return path;
 }
 
-/// Lanza el análisis con el motor clásico (sin IA): el que funciona en cualquier celular.
-void startDefaultAnalysis(WidgetRef ref, String projectId) => ref.read(analysisControllerProvider(projectId).notifier).start();
+/// Lanza el análisis con el motor elegido en Configuración. Si eligió IA pero el
+/// dispositivo no puede ejecutarla (o no hay modelo verificado), usa el clásico: funciona
+/// en cualquier celular.
+Future<void> startDefaultAnalysis(WidgetRef ref, String projectId) async {
+  final ctrl = ref.read(analysisControllerProvider(projectId).notifier);
+  if (ref.read(settingsProvider).engine == DefaultEngine.ai && ref.read(analysisRunnerProvider) != null) {
+    try {
+      final models = await ref.read(installedModelsProvider.future);
+      final usable = models.where((m) => m.hashVerified).toList();
+      if (usable.isNotEmpty) return await ctrl.start(model: usable.first);
+    } on Object {
+      // sin modelos legibles: motor clásico
+    }
+  }
+  return ctrl.start();
+}
