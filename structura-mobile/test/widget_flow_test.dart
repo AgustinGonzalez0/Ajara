@@ -138,7 +138,7 @@ void main() {
     await t.tap(find.byKey(const Key('quick_file')));
     await settleUntil(t, find.byKey(const Key('mini_3d')));
     expect(find.byKey(const Key('mini_3d')), findsOneWidget);
-    expect(find.text('MOTOR CLÁSICO · SIN IA'), findsOneWidget);
+    expect(find.text('MOTOR CLÁSICO · SIN IA  ›'), findsOneWidget);
     expect(find.text('1 puerta'), findsOneWidget);
     expect(find.text('1 ventana'), findsOneWidget);
     final rec = (await t.runAsync(() => h.store.list()))!.single.activeAnalysis!;

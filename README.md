@@ -47,7 +47,7 @@ cota, declarar pisos, material y espesor → resultados → **Ver en 3D**.
 
 ## Instalación (Windows 11)
 ```powershell
-cd C:\STRUCTURA
+cd $env:USERPROFILE\Desktop\STRUCTURA
 py -3.14 -m venv .venv          # 3.11 también sirve
 .\.venv\Scripts\python.exe -m pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cu128
 .\.venv\Scripts\python.exe -m pip install -r structura-core\requirements.txt -r structura-data\requirements.txt
@@ -56,23 +56,23 @@ cd structura-mobile; flutter pub get --offline
 
 ## Tests
 ```powershell
-cd C:\STRUCTURA\structura-data;  ..\.venv\Scripts\python.exe -m unittest discover -s tests -t .
-cd C:\STRUCTURA\structura-core;  ..\.venv\Scripts\python.exe -m unittest discover -s tests -t .
-foreach ($p in "structura_model","structura_vision","structura_geometry","structura_pipeline","structura_sim") { cd C:\STRUCTURA\packages\$p; dart test }
-cd C:\STRUCTURA\structura-mobile; flutter test
+cd $env:USERPROFILE\Desktop\STRUCTURA\structura-data;  ..\.venv\Scripts\python.exe -m unittest discover -s tests -t .
+cd $env:USERPROFILE\Desktop\STRUCTURA\structura-core;  ..\.venv\Scripts\python.exe -m unittest discover -s tests -t .
+foreach ($p in "structura_model","structura_vision","structura_geometry","structura_pipeline","structura_sim") { cd $env:USERPROFILE\Desktop\STRUCTURA\packages\$p; dart test }
+cd $env:USERPROFILE\Desktop\STRUCTURA\structura-mobile; flutter test
 flutter test integration_test\device_e2e_test.dart -d emulator-5554     # Android
 ```
 
 ## Build Android
 ```powershell
-cd C:\STRUCTURA\structura-mobile
+cd $env:USERPROFILE\Desktop\STRUCTURA\structura-mobile
 flutter build apk --release --split-per-abi
 powershell -File tool\verify_release.ps1     # sin red, sin telemetría, clases ONNX conservadas
 ```
 
 ## Modelo de IA (cuando haya datos reales)
 ```powershell
-cd C:\STRUCTURA\structura-core
+cd $env:USERPROFILE\Desktop\STRUCTURA\structura-core
 ..\.venv\Scripts\python.exe -m core.train    --dataset ..\data\dataset --output ..\data\runs\vision_ai_0_1
 ..\.venv\Scripts\python.exe -m core.evaluate --checkpoint ..\data\runs\vision_ai_0_1\best.pt --dataset ..\data\dataset
 ..\.venv\Scripts\python.exe -m core.export_onnx --checkpoint ..\data\runs\vision_ai_0_1\best.pt --output ..\data\runs\vision_ai_0_1\vision_ai.onnx --training-data real

@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Exporta Vision AI a ONNX y verifica paridad.")
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--output", required=True)
-    ap.add_argument("--training-data", required=True, choices=["real", "synthetic", "untrained"],
+    ap.add_argument("--training-data", required=True, choices=["real", "rendered", "synthetic", "untrained"],
                     help="Procedencia de los datos de entrenamiento (se graba en los metadatos)")
     ap.add_argument("--model-id", default="vision_ai")
     ap.add_argument("--version", default="0.1.0")

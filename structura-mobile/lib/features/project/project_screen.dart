@@ -584,7 +584,12 @@ class _InfoStrip extends StatelessWidget {
     if (a != null) {
       final classic = a.model['engine'] == 'classic';
       chips.add(
-        StatusPill(classic ? 'MOTOR CLÁSICO · SIN IA' : 'VISION AI', color: StructuraColors.teal, icon: Icons.bolt_rounded),
+        InkWell(
+          key: const Key('engine_chip'),
+          borderRadius: BorderRadius.circular(6),
+          onTap: () => context.push(Routes.analysis(p.id)),
+          child: StatusPill(classic ? 'MOTOR CLÁSICO · SIN IA  ›' : 'VISION AI  ›', color: StructuraColors.teal, icon: Icons.bolt_rounded),
+        ),
       );
       for (final k in ['wall', 'door', 'window', 'column', 'stairs']) {
         final n = a.counts[k] ?? 0;

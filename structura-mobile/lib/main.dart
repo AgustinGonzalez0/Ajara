@@ -7,10 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
+import 'app/licenses.dart';
 import 'app/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerExtraLicenses();
   final docs = await getApplicationDocumentsDirectory();
   final support = await getApplicationSupportDirectory();
   final dirs = AppDirs(

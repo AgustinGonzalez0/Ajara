@@ -1,7 +1,7 @@
 # Arquitectura de STRUCTURA AI
 
 ```
-C:\STRUCTURA\                      monorepo git (main = base original, develop = trabajo)
+STRUCTURA\ (Escritorio)          monorepo git (main = base original, develop = trabajo)
 ├── structura-data\                STRUCTURA DATA (Python): importación, LabelMe→máscaras, tiles,
 │                                  validación, splits. 85 tests.
 ├── structura-core\                STRUCTURA CORE — entrenamiento (Python/PyTorch): Vision AI,

@@ -26,6 +26,12 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
     final models = ref.watch(installedModelsProvider);
     final state = ref.watch(analysisControllerProvider(widget.projectId));
     final runnerAvailable = ref.watch(analysisRunnerProvider) != null;
+    // Al terminar bien, vuelve al panel del proyecto: ahí está el 3D y la acción siguiente.
+    ref.listen(analysisControllerProvider(widget.projectId), (prev, next) {
+      if (prev?.phase == AnalysisPhase.running && next.phase == AnalysisPhase.completed && context.canPop()) {
+        context.pop();
+      }
+    });
     final t = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Análisis del plano')),

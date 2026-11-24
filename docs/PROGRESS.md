@@ -64,7 +64,7 @@
 
 ## Para continuar
 ```powershell
-cd C:\STRUCTURA; git checkout develop; git log --oneline | Select-Object -First 8
+cd $env:USERPROFILE\Desktop\STRUCTURA; git checkout develop; git log --oneline | Select-Object -First 8
 C:\Users\Agusr\AppData\Local\Android\sdk\emulator\emulator.exe -avd Pixel_9
 cd structura-mobile; flutter run -d emulator-5554
 ```

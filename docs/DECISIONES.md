@@ -5,7 +5,7 @@ Las decisiones de structura-data están en `structura-data/docs/DECISIONES_TECNI
 
 | # | Decisión | Motivo | Reversible |
 |---|---|---|---|
-| D-01 | Monorepo git en `C:\STRUCTURA`; `main` conserva los paquetes originales intactos, el trabajo va en `develop` | conservar versiones originales y trazabilidad | sí |
+| D-01 | Monorepo git (hoy en `%USERPROFILE%\Desktop\STRUCTURA`, antes `$env:USERPROFILE\Desktop\STRUCTURA`); `main` conserva los paquetes originales intactos, el trabajo va en `develop` | conservar versiones originales y trazabilidad | sí |
 | D-02 | Python 3.14 + PyTorch 2.11.0+cu128 (en lugar de 3.11) | 3.11 no está instalado; hay wheels oficiales cu128 para 3.14 con sm_120; código compatible con 3.11 | sí |
 | D-03 | Runtime de IA en el dispositivo en **Dart puro + Kotlin**: el tiling y la geometría en Dart, solo la inferencia en ONNX Runtime nativo | testeable en PC sin Android; misma rejilla que Python; el runtime se puede sustituir | sí |
 | D-04 | ONNX Runtime Android **1.32.0** vía Maven (`repo1.maven.org`), CPU, 4 hilos. **No NNAPI/NPU** | NNAPI está deprecado; la compatibilidad de operadores con el NPU del S26 Ultra no está verificada → se mide primero en CPU | sí |
@@ -30,5 +30,13 @@ Las decisiones de structura-data están en `structura-data/docs/DECISIONES_TECNI
 | D-25 | Detección clásica con escala (lado mayor ≤ 3000 px) y etiquetas devueltas al tamaño original | un plano A1 a 200 DPI (~30 MP) agotaría la memoria de un celular básico | sí |
 | D-26 | Fusión de tramos colineales y paralelos y descarte de láminas en el Geometry Engine | una foto deja muros en escalones (28 → 11 muros medidos) | sí |
 | D-27 | `image_picker` (cámara y galería del sistema) en lugar de una cámara propia | sin permiso de cámara, sin dependencias nativas extra, disponible offline en la caché | sí |
+| D-28 | **Dataset vectorial renderizado** desde Swiss Dwellings (CC BY 4.0): geometría real dibujada con estilos aleatorios, máscara exacta desde los polígonos, splits por sitio | no hay planos reales anotados; etiquetas perfectas y variedad de estilos; reproducible en minutos | sí |
+| D-30 | **Columnas sintéticas** (aumento declarado en el manifiesto) en extremos de muros gruesos en ~35 % de los planos | Swiss Dwellings casi no tiene columnas (0,001 % de píxeles); en planos de H°A° latinoamericanos son frecuentes | sí |
+| D-31 | **Flujo rápido**: proyecto con nombre automático (editable), análisis clásico automático al importar y descarte del proyecto vacío si se cancela | foto → modelo 3D en 2 toques; menos formularios | sí |
+| D-32 | **Zonas sísmicas INPRES-CIRSOC 103** (0,04 · 0,10 · 0,18 · 0,25 · 0,35 g) como valores de referencia, con "Otro" libre | lenguaje del profesional argentino; se aclara que la zona se confirma en el reglamento | sí |
+| D-33 | **Corrección manual** (eliminar, puerta ↔ ventana) con procedencia `userCorrected`, deshacer, GLB regenerado y **evaluación anterior invalidada** | mostrar una evaluación calculada con otra geometría sería engañoso | sí |
+| D-34 | `share_plus` (hoja de compartir del sistema) y `pdf` (informe en Dart puro, fuentes Roboto empaquetadas) | compartir sin subir nada a servidores; el informe se genera sin conexión | sí |
+| D-35 | Opciones experimentales de entrenamiento `--class-weights enet` y `--photometric-aug`, **apagadas por defecto** | permiten medir la propuesta D-18 sin cambiar la especificación 0.1 | sí |
+| D-29 | **[PENDIENTE]** Usar ResPlan: su propio repositorio declara CC BY 4.0 en `LICENSE` y CC BY-NC-SA 4.0 en `croissant.json`/Kaggle; autores no publicados | riesgo legal para uso comercial; excluido por defecto | — |
 | D-17 | **[PENDIENTE]** Convención de anotación de puertas (vano) | cambiarla después obliga a re-anotar | — |
 | D-18 | **[PENDIENTE]** Función de pérdida (ver `EVALUACION_LOSS.md`) | modifica la especificación 0.1 | — |

@@ -29,7 +29,7 @@ Este paquete prepara datos. **No** evalúa calidad semántica (eso requiere revi
 Requiere Python 3.11 (recomendado). También se probó en 3.14.
 
 ```powershell
-cd C:\STRUCTURA\structura-data\structura_dataset_tools   # o la carpeta donde se descomprimió
+cd $env:USERPROFILE\Desktop\STRUCTURA\structura-data
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -39,12 +39,12 @@ pip install -r requirements.txt
 Para anotar se necesita LabelMe en un entorno separado (trae Qt y no hace falta para el pipeline):
 
 ```powershell
-py -3.11 -m venv C:\STRUCTURA\labelme-env
-C:\STRUCTURA\labelme-env\Scripts\pip install labelme
+py -3.11 -m venv C:\labelme-env
+C:\labelme-env\Scripts\pip install labelme
 ```
 
 > Si `pip` falla con *"Windows Long Path support"*, usar una ruta corta para el entorno
-> (por ejemplo `C:\STRUCTURA\labelme-env`) o habilitar las rutas largas de Windows.
+> (por ejemplo `C:\labelme-env`) o habilitar las rutas largas de Windows.
 
 Comprobar la instalación:
 
@@ -84,7 +84,7 @@ structura_dataset_tools\
 Espacio de trabajo recomendado para los datos, fuera del código:
 
 ```
-C:\STRUCTURA\structura-data\
+$env:USERPROFILE\Desktop\STRUCTURA\structura-data\
   incoming\<project_id>\    archivos originales tal como llegan (no se modifican)
   work\raw\                 PNG canónicos (lo que se anota)
   work\plans.csv            registro de planos
@@ -98,7 +98,7 @@ C:\STRUCTURA\structura-data\
 ## 3. Flujo de trabajo
 
 Todos los comandos se ejecutan desde la carpeta del paquete con el venv activado. Abajo,
-`$D` es la carpeta de datos: `$D = "C:\STRUCTURA\structura-data"`.
+`$D` es la carpeta de datos: `$D = "$env:USERPROFILE\Desktop\STRUCTURA\structura-data"`.
 
 ### 3.1 Importar planos
 ```powershell
@@ -118,7 +118,7 @@ python -m tools.import_plans --input "$D\incoming\proyecto_001" --project-id pro
 
 ### 3.2 Anotar
 ```powershell
-C:\STRUCTURA\labelme-env\Scripts\labelme "$D\work\raw" --config .\config\labelme_config.yaml --output "$D\annotations"
+C:\labelme-env\Scripts\labelme "$D\work\raw" --config .\config\labelme_config.yaml --output "$D\annotations"
 ```
 Seguir `docs/MANUAL_ANOTACION.md`. La bandera de imagen `needs_review` excluye el plano del
 dataset hasta que se quite.

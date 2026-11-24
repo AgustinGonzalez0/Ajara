@@ -65,7 +65,7 @@ class ModelDescriptor {
   final int tile;
   final int overlap;
 
-  /// `real`, `synthetic` o `untrained`.
+  /// `real`, `rendered` (geometría real dibujada por STRUCTURA), `synthetic` o `untrained`.
   final String trainingData;
   final bool productionReady;
   final double? valMiou;
@@ -125,6 +125,7 @@ class ModelDescriptor {
   /// Etiqueta de confiabilidad para la UI.
   String get trustLabel => switch (trainingData) {
         'real' => productionReady ? 'Modelo entrenado con datos reales' : 'Modelo real en evaluación',
+        'rendered' => 'Entrenado con plantas reales dibujadas por STRUCTURA (Swiss Dwellings); falta validar con fotos de planos reales',
         'synthetic' => 'Modelo de prueba — entrenado solo con planos sintéticos',
         'untrained' => 'Modelo sin entrenar — solo para pruebas técnicas',
         _ => 'Procedencia de entrenamiento desconocida',
