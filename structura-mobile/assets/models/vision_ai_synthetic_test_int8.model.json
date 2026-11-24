@@ -1,11 +1,11 @@
 {
   "format": "structura-model/1",
-  "id": "vision_ai_synthetic_test",
+  "id": "vision_ai_synthetic_test_int8",
   "version": "0.0.1",
   "task": "semantic_segmentation",
-  "file": "vision_ai_synthetic_test.onnx",
-  "sha256": "b17b59ddcf4906a349413c9780ed8daf0e8e270fc90cd81df5d44f9924266adc",
-  "bytes": 7774449,
+  "file": "vision_ai_synthetic_test_int8.onnx",
+  "sha256": "3126e6a48a648afb22c104ab9e9db865d8cf00464689f83f91578bb54a5005fd",
+  "bytes": 2010976,
   "input": {
     "name": "image",
     "shape": [
@@ -54,5 +54,14 @@
     "argmax_agreement_min": 1.0,
     "onnxruntime": "1.32.0"
   },
-  "notes": "MODELO DE PRUEBA entrenado solo con planos sinteticos. No apto para planos reales."
+  "notes": "MODELO DE PRUEBA entrenado solo con planos sinteticos. No apto para planos reales.",
+  "quantization": {
+    "type": "int8_static_qdq",
+    "calibration_tiles": 32,
+    "fp32_bytes": 7774449,
+    "tiles": 7,
+    "argmax_agreement_mean": 0.9999891008649554,
+    "argmax_agreement_min": 0.9999656677246094,
+    "int8_miou": 0.4964019723999959
+  }
 }

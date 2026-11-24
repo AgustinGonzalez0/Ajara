@@ -139,7 +139,7 @@ void main() {
     expect(find.text('E2E dispositivo'), findsOneWidget);
     router.push('/projects/${project.id}/editor');
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 15));
-    expect(find.text('Segmentación (IA)'), findsOneWidget);
+    expect(find.text('Segmentación'), findsOneWidget);
     router.go('/projects/${project.id}/model');
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 15));
     expect(find.text('Modelo 3D'), findsOneWidget);

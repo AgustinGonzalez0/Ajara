@@ -128,3 +128,19 @@ class TestInferenceAndExport(TempDirCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestQuantization(TempDirCase):
+    def test_int8_quantization_keeps_predictions(self):
+        from core.quantize import quantize
+        ds = make_tile_dataset(self.root / "ds", 4, 1, 2)
+        ckpt = save_random_checkpoint(self.root / "rand.pt")
+        fp32 = self.root / "m.onnx"
+        export(ckpt, fp32, training_data="untrained")
+        meta = quantize(fp32, ds, self.root / "m_int8.onnx", calib_tiles=4)
+        q = meta["quantization"]
+        self.assertLess(meta["bytes"], 0.4 * q["fp32_bytes"])
+        self.assertGreater(q["argmax_agreement_mean"], 0.95)
+        self.assertEqual(meta["training"]["data"], "untrained")  # hereda la procedencia
+        saved = json.loads((self.root / "m_int8.model.json").read_text(encoding="utf-8"))
+        self.assertTrue(saved["id"].endswith("_int8"))

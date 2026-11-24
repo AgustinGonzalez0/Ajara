@@ -84,11 +84,11 @@ class _ProjectView extends ConsumerWidget {
       _Step(
         n: 2,
         icon: Icons.auto_awesome_mosaic_outlined,
-        title: 'Análisis IA',
+        title: 'Análisis del plano',
         detail: running
             ? 'Procesando…'
             : analysis == null
-                ? 'Segmentación local con Vision AI.'
+                ? 'Detección local de muros, aberturas y columnas (sin conexión).'
                 : '${formatDate(analysis.createdAt)} · ${analysis.counts.entries.map((e) => '${e.value} ${StructuraColors.classLabels[e.key]?.toLowerCase() ?? e.key}').join(' · ')}',
         done: analysis != null,
         enabled: plan != null,

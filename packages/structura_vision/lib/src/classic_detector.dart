@@ -67,6 +67,31 @@ class ClassicDetector {
   final ClassicConfig config;
   const ClassicDetector([this.config = const ClassicConfig()]);
 
+  /// Igual que [detect] pero procesa una versión reducida (lado mayor ≤ [maxSide]) y
+  /// devuelve las etiquetas al tamaño original. Acota memoria y tiempo en celulares
+  /// de gama baja con planos grandes (p. ej., A1 a 200 DPI ≈ 30 MP).
+  ClassicResult detectScaled(GrayImage gray, {int maxSide = 3000, bool normalize = true}) {
+    final long = math.max(gray.width, gray.height);
+    final factor = (long / maxSide).ceil();
+    if (factor <= 1) return detect(gray, normalize: normalize);
+    final small = gray.downscale(factor);
+    final r = detect(small, normalize: normalize);
+    final w = gray.width, h = gray.height, sw = small.width, sh = small.height;
+    final labels = Uint8List(w * h);
+    for (var y = 0; y < h; y++) {
+      final sy = math.min(sh - 1, y ~/ factor);
+      for (var x = 0; x < w; x++) {
+        labels[y * w + x] = r.segmentation.labels[sy * sw + math.min(sw - 1, x ~/ factor)];
+      }
+    }
+    final d = r.diagnostics;
+    return ClassicResult(
+      SegmentationResult(width: w, height: h, labels: labels),
+      ClassicDiagnostics(d.wallThicknessPx * factor, d.wallThresholdPx * factor, d.inkPixels, d.wallPixels, d.doors,
+          d.windows, d.columns, [...d.warnings, 'Procesado a escala 1/$factor por tamaño del plano.']),
+    );
+  }
+
   ClassicResult detect(GrayImage gray, {bool normalize = true}) {
     final g = normalize ? normalizeIllumination(gray) : gray;
     final w = g.width, h = g.height;
@@ -197,6 +222,35 @@ class ClassicDetector {
         final across = horizontal ? c.maxY - c.minY + 1 : c.maxX - c.minX + 1;
         // Un vano tiene el "espesor" de un muro; un pasillo entre muros paralelos no.
         if (across < 0.4 * t || across > 1.7 * t || along < minL) continue;
+        // A ambos lados del vano debe haber un tramo de muro real (≥ 1,5 t), no una
+        // columna adosada ni un fragmento: evita "puertas" falsas junto a columnas.
+        // Se mide en 3 líneas paralelas (tolerancia a la leve inclinación de una foto).
+        final c0 = horizontal ? c.minY : c.minX, c1 = horizontal ? c.maxY : c.maxX;
+        final lines = {(c0 + c1) ~/ 2, c0 + (c1 - c0) ~/ 4, c1 - (c1 - c0) ~/ 4};
+        int run(int line, int start, int step) {
+          var n = 0;
+          for (var k = start; k >= 0 && k < inner && n < 4 * t; k += step) {
+            if (wall[idx(line, k)] == 0) break;
+            n++;
+          }
+          return n;
+        }
+        final lo = horizontal ? c.minX : c.minY, hi = horizontal ? c.maxX : c.maxY;
+        var before = 0, after = 0;
+        for (final l in lines) {
+          // Inicio/fin reales del hueco en esta línea (los bordes de una foto son irregulares).
+          var s0 = -1, s1 = -1;
+          for (var k = lo; k <= hi; k++) {
+            if (gapMask[idx(l, k)] == 1) {
+              if (s0 < 0) s0 = k;
+              s1 = k;
+            }
+          }
+          if (s0 < 0) continue;
+          before = math.max(before, run(l, s0 - 1, -1));
+          after = math.max(after, run(l, s1 + 1, 1));
+        }
+        if (before < 1.25 * t || after < 1.25 * t) continue;
         var inkIn = 0, area = 0;
         for (var y = c.minY; y <= c.maxY; y++) {
           for (var x = c.minX; x <= c.maxX; x++) {

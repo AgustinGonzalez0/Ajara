@@ -135,4 +135,23 @@ void main() {
     expect(r.diagnostics.warnings.first, contains('trazos gruesos'));
     expect(r.segmentation.classHistogram()[ClassId.wall], 0);
   });
+
+  test('modo con escala: mismo resultado y etiquetas al tamaño original', () {
+    final plan = planImage(w: 1800, h: 1280);
+    // planImage dibuja en coordenadas fijas: se reescala el plano base a 2x.
+    final big = GrayImage(1800, 1280, Uint8List(1800 * 1280));
+    final base = planImage();
+    for (var y = 0; y < 1280; y++) {
+      for (var x = 0; x < 1800; x++) {
+        big.data[y * 1800 + x] = base.at(x ~/ 2, y ~/ 2);
+      }
+    }
+    expect(plan.width, 1800);
+    final r = const ClassicDetector().detectScaled(big, maxSide: 1000);
+    expect(r.segmentation.width, 1800);
+    expect(r.segmentation.height, 1280);
+    expect(r.diagnostics.doors, 1);
+    expect(r.diagnostics.windows, 1);
+    expect(r.diagnostics.warnings.last, contains('1/2'));
+  });
 }

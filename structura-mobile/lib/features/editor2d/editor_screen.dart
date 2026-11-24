@@ -230,7 +230,7 @@ class _LayerPanel extends StatelessWidget {
     return ListView(padding: const EdgeInsets.all(Gap.lg), children: [
       const SectionLabel('Capas'),
       _toggle('Plano', 'plan', showPlan, true),
-      _toggle('Segmentación (IA)', 'seg', showSeg, data.segmentation != null),
+      _toggle('Segmentación', 'seg', showSeg, data.segmentation != null),
       _toggle('Vectores (Building Model)', 'vec', showVectors, data.model != null),
       if (data.project.activeAnalysis?.isTestModel == true) ...[
         const SizedBox(height: Gap.md),

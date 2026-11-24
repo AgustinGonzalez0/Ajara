@@ -90,7 +90,10 @@ class _PhotoScreenState extends ConsumerState<PhotoScreen> {
         throw StateError('El recorte es demasiado chico. Ajustá las esquinas a los bordes de la hoja.');
       }
       final project = await ref.read(projectStoreProvider).load(widget.projectId);
-      await ref.read(photoImporterProvider).import(project, file, photo, quad, originalName: file.uri.pathSegments.last);
+      final now = DateTime.now();
+      String two(int v) => v.toString().padLeft(2, '0');
+      final name = 'Foto del plano ${two(now.day)}-${two(now.month)}-${now.year} ${two(now.hour)}.${two(now.minute)}.jpg';
+      await ref.read(photoImporterProvider).import(project, file, photo, quad, originalName: name);
       refreshProject(ref, widget.projectId);
       if (mounted) context.pushReplacement(Routes.project(widget.projectId));
     } on Object catch (e) {

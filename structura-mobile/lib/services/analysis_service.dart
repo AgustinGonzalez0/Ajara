@@ -130,7 +130,8 @@ Future<AnalysisRecord> executeClassicAnalysis(AnalysisJob job, {ProgressSink? on
     final sw = Stopwatch()..start();
     report(0, 'segment', 'Detección clásica (sin IA)', 0);
     final raster = decodeRaster(await File(job.rasterPath).readAsBytes());
-    final det = const ClassicDetector().detect(GrayImage.fromRgb(raster.width, raster.height, raster.rgb));
+    // detectScaled acota memoria y tiempo en celulares de gama baja (planos grandes).
+    final det = const ClassicDetector().detectScaled(GrayImage.fromRgb(raster.width, raster.height, raster.rgb));
     final tDetect = sw.elapsedMilliseconds;
     report(0, 'segment', 'Detección clásica (sin IA)', 1);
     token?.throwIfCancelled();

@@ -73,7 +73,7 @@ class Vectorizer {
 
   VectorizationResult run(SegmentationResult seg, {required Source source}) {
     final warnings = <String>[];
-    final rects = decomposeWalls(seg);
+    final rects = mergeFragments(decomposeWalls(seg));
     final comps = <Component>[];
     for (final c in [ClassId.door, ClassId.window, ClassId.column, ClassId.stairs]) {
       comps.addAll(connectedComponents(seg, c).where((k) => k.pixels >= config.minComponentArea));
@@ -169,6 +169,61 @@ class Vectorizer {
   static double _overlap(double a0, double a1, double b0, double b1) {
     final lo = a0 > b0 ? a0 : b0, hi = a1 < b1 ? a1 : b1;
     return hi - lo;
+  }
+
+  /// Fusiona tramos colineales contiguos (misma franja de espesor) y descarta
+  /// fragmentos chicos pegados a un muro mayor (los "escalones" que deja una foto o
+  /// un plano levemente inclinado). Reduce decenas de rectángulos a los muros reales.
+  static List<WallRect> mergeFragments(List<WallRect> input) {
+    if (input.length < 2) return input;
+    final ts = input.map((r) => r.w < r.h ? r.w : r.h).toList()..sort();
+    final t = ts[ts.length ~/ 2].toDouble();
+    final tol = (0.35 * t).clamp(2.0, 12.0);
+    var rects = [...input];
+    var changed = true;
+    while (changed) {
+      changed = false;
+      outer:
+      for (var i = 0; i < rects.length; i++) {
+        for (var j = i + 1; j < rects.length; j++) {
+          final a = rects[i], b = rects[j];
+          WallRect? m;
+          if (a.horizontal && b.horizontal && a.w > 1.5 * t && b.w > 1.5 * t) {
+            final touch = b.x <= a.x + a.w + 1 && a.x <= b.x + b.w + 1;
+            if (touch && (a.y - b.y).abs() <= tol && ((a.y + a.h) - (b.y + b.h)).abs() <= tol) {
+              final x0 = a.x < b.x ? a.x : b.x, x1 = (a.x + a.w) > (b.x + b.w) ? a.x + a.w : b.x + b.w;
+              final y0 = a.y < b.y ? a.y : b.y, y1 = (a.y + a.h) > (b.y + b.h) ? a.y + a.h : b.y + b.h;
+              m = WallRect(x0, y0, x1 - x0, y1 - y0, _avgConf(a, b));
+            }
+          } else if (!a.horizontal && !b.horizontal && a.h > 1.5 * t && b.h > 1.5 * t) {
+            final touch = b.y <= a.y + a.h + 1 && a.y <= b.y + b.h + 1;
+            if (touch && (a.x - b.x).abs() <= tol && ((a.x + a.w) - (b.x + b.w)).abs() <= tol) {
+              final x0 = a.x < b.x ? a.x : b.x, x1 = (a.x + a.w) > (b.x + b.w) ? a.x + a.w : b.x + b.w;
+              final y0 = a.y < b.y ? a.y : b.y, y1 = (a.y + a.h) > (b.y + b.h) ? a.y + a.h : b.y + b.h;
+              m = WallRect(x0, y0, x1 - x0, y1 - y0, _avgConf(a, b));
+            }
+          }
+          if (m != null) {
+            rects[i] = m;
+            rects.removeAt(j);
+            changed = true;
+            break outer;
+          }
+        }
+      }
+    }
+    // Fragmentos chicos (ambos lados ≤ 1,6 t) que tocan un muro mayor: se descartan.
+    bool touches(WallRect a, WallRect b) =>
+        a.x <= b.x + b.w + 1 && b.x <= a.x + a.w + 1 && a.y <= b.y + b.h + 1 && b.y <= a.y + a.h + 1;
+    return [
+      for (final r in rects)
+        if (!(r.w <= 1.6 * t && r.h <= 1.6 * t && rects.any((o) => !identical(o, r) && (o.w > 1.6 * t || o.h > 1.6 * t) && touches(r, o)))) r
+    ];
+  }
+
+  static double? _avgConf(WallRect a, WallRect b) {
+    if (a.meanConfidence == null || b.meanConfidence == null) return null;
+    return (a.meanConfidence! * a.area + b.meanConfidence! * b.area) / (a.area + b.area);
   }
 
   /// Descomposición greedy de la clase muro en rectángulos.

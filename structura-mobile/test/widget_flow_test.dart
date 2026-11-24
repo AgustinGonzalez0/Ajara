@@ -218,7 +218,7 @@ void main() {
     await t.pump();
     await t.tap(find.text('Abrir editor 2D'));
     await settle(t, rounds: 20);
-    expect(find.text('Segmentación (IA)'), findsOneWidget);
+    expect(find.text('Segmentación'), findsOneWidget);
     expect(find.textContaining('Muros · w0001'), findsOneWidget);
     await t.scrollUntilVisible(find.text('Corrección manual'), 300, scrollable: find.byType(Scrollable).last);
     expect(find.text('Corrección manual'), findsOneWidget);
