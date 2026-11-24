@@ -57,6 +57,9 @@ ThemeData buildTheme(Brightness brightness) {
     onPrimary: Colors.white,
     secondary: StructuraColors.teal,
     onSecondary: StructuraColors.ink,
+    // Botones tonales y chips seleccionados: azul plano atenuado (no turquesa saturado).
+    secondaryContainer: dark ? const Color(0xFF1B2A44) : const Color(0xFFDCE7FF),
+    onSecondaryContainer: dark ? const Color(0xFFC9DBFF) : const Color(0xFF0F2A5C),
     error: StructuraColors.danger,
     onError: Colors.white,
     surface: dark ? StructuraColors.surface : const Color(0xFFF6F7F9),
@@ -130,6 +133,7 @@ ThemeData buildTheme(Brightness brightness) {
       height: 68,
     ),
     chipTheme: base.chipTheme.copyWith(
+      showCheckmark: false,
       side: BorderSide(color: scheme.outline),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ),

@@ -1,4 +1,11 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- PRIVACIDAD / OFFLINE: onnxruntime-android declara INTERNET y ACCESS_NETWORK_STATE
+         para su telemetría. Se eliminan del manifiesto fusionado: la app de release no
+         puede abrir conexiones de red (garantía a nivel del sistema operativo).
+         El manifiesto de debug vuelve a añadir INTERNET solo para las herramientas de Flutter. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove"/>
     <application
         android:label="STRUCTURA AI"
         android:name="${applicationName}"
@@ -30,6 +37,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Desactiva el inicializador de telemetría de ONNX Runtime (ContentProvider que se
+             ejecuta al arrancar la app y consulta la recolección de ID de dispositivo). -->
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            android:authorities="${applicationId}.onnxruntime_telemetry_initializer"
+            tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

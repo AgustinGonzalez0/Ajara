@@ -22,7 +22,17 @@ import java.util.concurrent.atomic.AtomicInteger
  * NPU del dispositivo no está verificada (ver docs/DECISIONES.md).
  */
 class OnnxBridge : MethodChannel.MethodCallHandler {
-    private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
+    // Se crea al cargar el primer modelo (no al arrancar la app) y con telemetría
+    // desactivada. Además, el manifiesto elimina INTERNET y el TelemetryInitializer de ORT.
+    private val env: OrtEnvironment by lazy {
+        OrtEnvironment.getEnvironment().also { e ->
+            try {
+                e.setTelemetry(false)
+            } catch (t: Throwable) {
+                android.util.Log.w("STRUCTURA", "No se pudo desactivar la telemetría de ORT: ${t.message}")
+            }
+        }
+    }
     private val sessions = ConcurrentHashMap<Int, OrtSession>()
     private val nextId = AtomicInteger(1)
     private val worker = Executors.newSingleThreadExecutor()

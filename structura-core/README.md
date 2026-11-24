@@ -1,84 +1,43 @@
-# STRUCTURA CORE — primer prototipo ejecutable
+# STRUCTURA CORE — Vision AI (entrenamiento)
 
-Prototipo de investigación para segmentación semántica de planos arquitectónicos.
+Segmentación semántica de planos (U-Net Small, 6 clases, entrada RGB 512×512).
 No es un sistema de ingeniería ni valida seguridad estructural.
 
-## 1. Requisitos
-- Python 3.10 o 3.11
-- Para entrenar: PyTorch instalado según CPU/CUDA de tu equipo.
-- Para inferencia: ONNX Runtime o PyTorch.
+## Especificación 0.1 (implementada)
+U-Net Small · base 16 · 4 niveles · BatchNorm · CrossEntropy (sin pesos) · AdamW lr 1e-3 ·
+40 épocas · batch 4 · AMP FP16 en CUDA · ONNX opset 17. La función de pérdida está en
+revisión: ver `../docs/EVALUACION_LOSS.md`.
 
-## 2. Instalar
-```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
+## Módulos
+| Archivo | Función |
+|---|---|
+| `core/model.py` | U-Net Small (sin cambios respecto del prototipo) |
+| `core/data.py` | Dataset de structura-data (train/validation/test), lectura Unicode-safe |
+| `core/train.py` | AMP, semillas, CSV por época, mejor checkpoint por mIoU |
+| `core/metrics.py` | Matriz de confusión acumulada: IoU, precision, recall, Boundary F1 por clase |
+| `core/evaluate.py` | Informe JSON + Markdown en un split; tiempo de inferencia y memoria GPU |
+| `core/tiling.py` | Inferencia por tiles (512/64, misma rejilla que el dataset) con recomposición ponderada |
+| `core/predict.py` / `predict_onnx.py` | Inferencia de planos de cualquier tamaño (PyTorch / ONNX Runtime) |
+| `core/export_onnx.py` | Exportación + verificación de paridad + `<modelo>.model.json` con procedencia |
 
-pip install -r requirements.txt
+## Uso (Windows)
+```powershell
+cd C:\STRUCTURA\structura-core
+..\.venv\Scripts\python.exe -m core.train --dataset ..\data\dataset --output ..\data\runs\vision_ai_0_1
+..\.venv\Scripts\python.exe -m core.evaluate --checkpoint ..\data\runs\vision_ai_0_1\best.pt --dataset ..\data\dataset --split test
+..\.venv\Scripts\python.exe -m core.predict --model ..\data\runs\vision_ai_0_1\best.pt --input plano.png --output pred
+..\.venv\Scripts\python.exe -m core.export_onnx --checkpoint ..\data\runs\vision_ai_0_1\best.pt --output ..\data\runs\vision_ai_0_1\vision_ai.onnx --training-data real
+..\.venv\Scripts\python.exe -m unittest discover -s tests -t .
 ```
+`--training-data` es obligatorio (`real|synthetic|untrained`) y queda grabado en los
+metadatos: la app nunca presenta como apto un modelo sintético.
 
-Si `pip install torch` no instala una versión adecuada para tu GPU, instalá PyTorch
-siguiendo el selector oficial de instalación de PyTorch. El prototipo también puede
-entrenarse en CPU, aunque será más lento.
+## Salidas de entrenamiento
+`config.json`, `train_log.csv` (loss, mIoU, IoU por clase, BF1, tiempo y memoria por época),
+`best.pt` (mejor mIoU), `latest.pt`, `best_val_metrics.json`. Los checkpoints se cargan con
+`torch.load(weights_only=True)`.
 
-## 3. Dataset
-Estructura:
-```text
-dataset/
-  images/
-    plan_0001.png
-  masks/
-    plan_0001.png
-  splits/
-    train.txt
-    validation.txt
-```
-
-Cada imagen y máscara debe compartir el mismo nombre base y dimensiones.
-La máscara debe ser PNG en escala de grises con IDs:
-- 0 fondo
-- 1 pared
-- 2 puerta
-- 3 ventana
-- 4 columna
-- 5 escalera
-
-Los valores de la máscara son IDs, no colores RGB. No uses máscaras JPEG.
-
-Los archivos `train.txt` y `validation.txt` contienen un nombre base por línea,
-por ejemplo `plan_0001` (sin extensión). Separá por proyecto de origen: no pongas
-recortes del mismo plano original en train y validation.
-
-## 4. Entrenar
-```bash
-python -m core.train --dataset ./dataset --epochs 40 --batch-size 4 --output ./artifacts
-```
-
-El modelo espera imágenes RGB y máscaras con IDs de clase. Si el dataset es pequeño,
-empezá con 10–20 épocas para verificar que todo funciona.
-
-## 5. Inferencia de prueba
-```bash
-python -m core.predict --model ./artifacts/best.pt --input ./examples/plano.png --output ./artifacts/prediction
-```
-Genera `mask.png` y `overlay.png`.
-
-## 6. Exportar a ONNX
-```bash
-python -m core.export_onnx --checkpoint ./artifacts/best.pt --output ./artifacts/vision_ai.onnx
-```
-
-## 7. Probar ONNX Runtime en escritorio
-```bash
-python -m core.predict_onnx --model ./artifacts/vision_ai.onnx --input ./examples/plano.png --output ./artifacts/onnx_prediction
-```
-
-## Alcance deliberado del prototipo
-- Una U-Net compacta con seis clases.
-- Entrada redimensionada a 512x512.
-- Entrenamiento supervisado con máscaras dibujadas/validadas por personas.
-- Exportación ONNX con tamaño fijo 512x512.
-- No incluye todavía detección de escala, reconstrucción 3D, inferencia por teselas,
-  segmentación vectorial de PDF ni ejecución Android.
+## Resultado de referencia (dataset SINTÉTICO, solo para validar el pipeline)
+40 épocas, RTX 5070: 0,4 s/época, 842 MB de memoria pico, inferencia 2,7 ms/tile (FP16).
+Test: muros IoU 0,99, escaleras 0,99, **puertas/ventanas/columnas 0,00** (desbalance de
+clases, ver `../docs/EVALUACION_LOSS.md`). No es un modelo útil para planos reales.
