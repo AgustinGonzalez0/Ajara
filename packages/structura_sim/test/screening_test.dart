@@ -78,8 +78,9 @@ void main() {
     final force = 0.5 * 1100 * 2 * u * u * 2 * 10.2 / 1000; // ancho perpendicular = 10,2 m
     expect(ind(r, 'sliding').value, closeTo(force / (0.5 * 838.8), 1e-6));
     expect(ind(r, 'base_shear').value, closeTo(force / (250 * 3.2), 1e-6));
-    // Solo los muros perpendiculares al flujo (top/bottom) se evalúan a flexión.
-    expect(r.elementRatios.keys.toSet(), {'top', 'bottom'});
+    // Perpendiculares al flujo (top/bottom) a flexión; paralelos (left/right) a corte.
+    expect(r.elementRatios.keys.toSet(), {'top', 'bottom', 'left', 'right'});
+    expect(r.elementRatios['left'], closeTo(ind(r, 'base_shear').value, 1e-12));
     expect(ind(r, 'wall_out_of_plane').status, Status.critical); // mampostería no resiste 2 m de agua en flujo
     expect(r.assumptions.join(), contains('√(g·h)'));
   });
@@ -91,7 +92,8 @@ void main() {
     final m = p * 2.6 * 2.6 / 8;
     final cap = 150 * 0.2 * 0.2 / 6; // f = 0,15 MPa
     expect(ind(r, 'facade_out_of_plane').value, closeTo(m / cap, 1e-9));
-    expect(r.elementRatios.keys.toSet(), {'left', 'right'});
+    expect(r.elementRatios['left'], closeTo(m / cap, 1e-9)); // fachada a flexión
+    expect(r.elementRatios['top'], closeTo(ind(r, 'base_shear').value, 1e-12)); // paralelo a corte
   });
 
   test('informe serializable con advertencia', () {
@@ -99,5 +101,16 @@ void main() {
     final j = rep.toJson();
     expect(j['disclaimer'], contains('No determina que la estructura sea segura'));
     expect((j['results'] as List).length, 3);
+  });
+
+  test('espesor declarado reemplaza al detectado y queda en los supuestos', () {
+    final detected = runScreening(box(), building).results[2];
+    final declared = runScreening(box(), const BuildingInput(material: WallMaterial.confinedMasonry, wallThicknessM: 0.30))
+        .results[2];
+    // Flexión ∝ 1/t²: de 0,20 a 0,30 m la relación baja a (0,2/0,3)² ≈ 0,44.
+    expect(ind(declared, 'facade_out_of_plane').value / ind(detected, 'facade_out_of_plane').value, closeTo(4 / 9, 1e-9));
+    expect(declared.assumptions.first, contains('declarado por el profesional'));
+    expect(detected.assumptions.first, contains('20.0 cm'));
+    expect(() => runScreening(box(), const BuildingInput(wallThicknessM: 5)), throwsA(isA<SimulationException>()));
   });
 }

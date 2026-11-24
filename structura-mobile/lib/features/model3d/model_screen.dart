@@ -155,9 +155,9 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
     final hz = _hz;
     if (hz == null || hz.hazard != 'seismic' || !_playing) return null;
     final h = _mesh.assumptions.wallHeight;
-    final cycles = 3.0; // por vuelta de animación
-    final phase = math.sin(_anim.value * 2 * math.pi * cycles) * math.sin(_anim.value * math.pi);
-    return Sway(phase * h * 0.06, true, h);
+    const cycles = 4.0; // oscilaciones por vuelta de animación (continuo, sin pausas)
+    final phase = math.sin(_anim.value * 2 * math.pi * cycles);
+    return Sway(phase * h * 0.08, true, h);
   }
 
   List<RenderMesh> get _overlays {

@@ -12,6 +12,7 @@ import '../features/photo/photo_screen.dart';
 import '../features/project/new_project_screen.dart';
 import '../features/project/project_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/simulation/calibrate_screen.dart';
 import '../features/simulation/simulation_screen.dart';
 import '../features/splash/splash_screen.dart';
 import 'shell.dart';
@@ -29,6 +30,7 @@ abstract final class Routes {
   static String model3d(String id) => '/projects/$id/model';
   static String photo(String id, {bool camera = true}) => '/projects/$id/photo?source=${camera ? 'camera' : 'gallery'}';
   static String simulate(String id) => '/projects/$id/simulate';
+  static String calibrate(String id) => '/projects/$id/calibrate';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -60,6 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               builder: (_, s) => PhotoScreen(
                   projectId: s.pathParameters['id']!, camera: s.uri.queryParameters['source'] != 'gallery')),
           GoRoute(path: 'simulate', builder: (_, s) => SimulationScreen(projectId: s.pathParameters['id']!)),
+          GoRoute(path: 'calibrate', builder: (_, s) => CalibrateScreen(projectId: s.pathParameters['id']!)),
         ],
       ),
     ],

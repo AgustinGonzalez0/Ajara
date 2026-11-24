@@ -137,13 +137,18 @@ void main() {
     await settle(t, rounds: 20);
     expect(find.textContaining('No determina que la estructura sea segura'), findsOneWidget);
     expect(find.byKey(const Key('run_screening')), findsNothing); // sin escala no se evalúa
-    await t.tap(find.byKey(const Key('scale_wall')));
-    await settle(t, rounds: 3);
-    await t.tap(find.textContaining('w0001').last);
-    await settle(t, rounds: 3);
-    await t.enterText(find.byKey(const Key('scale_meters')), '11,2');
-    await t.tap(find.byKey(const Key('save_scale')));
+    // Calibración por cota: dos toques sobre el plano + valor real.
+    await t.tap(find.byKey(const Key('open_calibrate')));
     await settle(t, rounds: 20);
+    final r = t.getRect(find.byKey(const Key('calibrate_viewer')));
+    await t.tapAt(Offset(r.left + r.width * 0.2, r.center.dy));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tapAt(Offset(r.left + r.width * 0.8, r.center.dy));
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining('Distancia marcada'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('calibrate_meters')), '9,5');
+    await t.tap(find.byKey(const Key('calibrate_save')));
+    await settle(t, rounds: 30);
     expect(find.textContaining('Escala verificada'), findsOneWidget);
     await t.scrollUntilVisible(find.byKey(const Key('run_screening')), 300, scrollable: find.byType(Scrollable).last);
     await t.pump();

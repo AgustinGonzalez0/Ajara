@@ -5,12 +5,14 @@ C:\STRUCTURA\                      monorepo git (main = base original, develop =
 ├── structura-data\                STRUCTURA DATA (Python): importación, LabelMe→máscaras, tiles,
 │                                  validación, splits. 85 tests.
 ├── structura-core\                STRUCTURA CORE — entrenamiento (Python/PyTorch): Vision AI,
-│                                  métricas, evaluación, inferencia por tiles, exportación ONNX. 17 tests.
+│                                  métricas, evaluación, inferencia por tiles, exportación ONNX, INT8. 18 tests.
 ├── packages\                      STRUCTURA CORE — runtime en el dispositivo (Dart puro, sin Flutter)
 │   ├── structura_model\           Building Model: elementos, procedencia, confianza, unidades. 5 tests.
+│   ├── structura_vision\          Visión clásica SIN IA: rectificación de fotos y detección. 6 tests.
+│   ├── structura_sim\             Evaluación preliminar de sismo, tsunami y viento. 9 tests.
 │   ├── structura_geometry\        Geometry Engine: vectorización, malla 3D, GLB. 8 tests.
 │   └── structura_pipeline\        Integración: contratos, segmentación por tiles, pipeline por etapas. 9 tests.
-├── structura-mobile\              STRUCTURA MOBILE (Flutter): UI, persistencia, puentes nativos. 23 tests + E2E Android.
+├── structura-mobile\              STRUCTURA MOBILE (Flutter): UI, persistencia, puentes nativos. 24 tests + E2E Android.
 ├── data\                          (no versionado) datasets, runs y modelos generados
 └── docs\                          arquitectura, entorno, decisiones, evaluación de loss, progreso
 ```
@@ -18,13 +20,16 @@ C:\STRUCTURA\                      monorepo git (main = base original, develop =
 ## Flujo de datos
 
 ```
-PDF/PNG/JPG/TIFF
-  │  PlanImporter (Dart) / import_plans (Python)     → PNG canónico + sha256 + DPI con origen
-  ▼
+FOTO (cámara/galería)            PDF/PNG/JPG/TIFF
+  │  detectPaperQuad + homografía     │  PlanImporter (Dart) / import_plans (Python)
+  │  + normalización de iluminación   │
+  └──────────────┬────────────────────┘
+                 ▼  PNG canónico + sha256 + DPI con su origen
 PlanRaster (RGB)
-  │  TiledSegmenter (Dart) ── TileInferencer ──► ONNX Runtime Android (Kotlin, CPU)
-  │      rejilla 512/64 idéntica a structura-core/core/tiling.py; recomposición por bandas
-  ▼
+  ├─ Motor CLÁSICO (por defecto, sin IA): ClassicDetector (structura_vision) ─┐
+  └─ Vision AI (opcional): TiledSegmenter ── TileInferencer ──► ONNX Runtime  │
+       rejilla 512/64 idéntica a core/tiling.py; modelo INT8                  │
+                 ▼ ◄────────────────────────────────────────────────────────────┘
 SegmentationResult (labels + confianza por píxel)
   │  Vectorizer (Geometry Engine, determinista)
   ▼
@@ -32,6 +37,12 @@ BuildingModel (JSON versionado)   elementos + procedencia + confianza; medidas r
   │  MeshBuilder (+ DisplayAssumptions declarados)                     salvo escala verificada
   ▼
 BuildingMesh ──► GlbWriter (model.glb)   ──► visor 3D por software (Canvas)
+  │
+  └─ + escala verificada (cota de 2 puntos) + datos declarados (pisos, material, espesor)
+       ▼
+     ScreeningEngine (structura_sim): sismo / tsunami / viento → screening.json
+       ▼
+     visor 3D: mapa de calor demanda/capacidad, vaivén sísmico, agua de tsunami
 ```
 
 ## Responsabilidades (sin mezclar)

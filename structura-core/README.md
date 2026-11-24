@@ -19,6 +19,7 @@ revisión: ver `../docs/EVALUACION_LOSS.md`.
 | `core/tiling.py` | Inferencia por tiles (512/64, misma rejilla que el dataset) con recomposición ponderada |
 | `core/predict.py` / `predict_onnx.py` | Inferencia de planos de cualquier tamaño (PyTorch / ONNX Runtime) |
 | `core/export_onnx.py` | Exportación + verificación de paridad + `<modelo>.model.json` con procedencia |
+| `core/quantize.py` | INT8 estático QDQ calibrado con tiles reales; mide acuerdo y mIoU frente a FP32 |
 
 ## Uso (Windows)
 ```powershell
@@ -27,8 +28,13 @@ cd C:\STRUCTURA\structura-core
 ..\.venv\Scripts\python.exe -m core.evaluate --checkpoint ..\data\runs\vision_ai_0_1\best.pt --dataset ..\data\dataset --split test
 ..\.venv\Scripts\python.exe -m core.predict --model ..\data\runs\vision_ai_0_1\best.pt --input plano.png --output pred
 ..\.venv\Scripts\python.exe -m core.export_onnx --checkpoint ..\data\runs\vision_ai_0_1\best.pt --output ..\data\runs\vision_ai_0_1\vision_ai.onnx --training-data real
+..\.venv\Scripts\python.exe -m core.quantize --model ..\data\runs\vision_ai_0_1\vision_ai.onnx --dataset ..\data\dataset --output ..\data\runs\vision_ai_0_1\vision_ai_int8.onnx
+unsision_ai_0_1ision_ai.onnx --dataset ..\data\dataset --output ..\data
+unsision_ai_0_1ision_ai_int8.onnx
 ..\.venv\Scripts\python.exe -m unittest discover -s tests -t .
 ```
+INT8 medido con el modelo de prueba: 7,41 → 1,92 MB, acuerdo de argmax 100 %, mIoU sin
+cambios, 53,5 → 29,7 ms/tile en la CPU de la PC.
 `--training-data` es obligatorio (`real|synthetic|untrained`) y queda grabado en los
 metadatos: la app nunca presenta como apto un modelo sintético.
 

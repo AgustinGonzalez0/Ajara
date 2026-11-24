@@ -1,69 +1,70 @@
 # PROGRESS — STRUCTURA AI (actualizado 2026-11-24)
 
-## Estado por etapa
-| Etapa | Estado | Evidencia |
-|---|---|---|
-| 1. Auditoría y entorno | ✅ | `docs/ENTORNO.md`; red bloqueada hacia pub.dev/gradle documentada |
-| 2. CORE (P0) | ✅ (entrenamiento real pendiente de datos) | 17 tests; AMP en RTX 5070; paridad ONNX 7,8e-6 |
-| 3. App Flutter | ✅ base funcional | 23 tests; recorrido real en emulador (capturas verificadas) |
-| 4. Building Model + Geometry | ✅ v0.1 | 5 + 8 tests; GLB válido |
-| 5. Integración CORE ↔ app | ✅ con modelo de prueba | E2E Android con ONNX Runtime nativo |
-| 6. Validación integral | ✅ emulador · ❌ dispositivo físico | APK debug y release probados en Pixel_9 (Android 17) |
-| 7. Entrega | ✅ esta documentación + git `develop` | |
+## Qué funciona hoy (probado en emulador Android 17 con el APK de release)
+1. **Una foto → 3D**: cámara o galería del sistema, hoja detectada automáticamente,
+   esquinas ajustables, corrección de perspectiva e iluminación.
+2. **Motor clásico sin IA (por defecto)**: en la foto de prueba detectó muros, 1 puerta y
+   1 ventana en **106 ms** (detección) + 15 ms (vectorización).
+3. **Vision AI opcional** (ONNX Runtime nativo, modelo INT8 de prueba de 1,92 MB).
+4. **Editor 2D, modelo 3D y GLB**.
+5. **Evaluación preliminar**: calibración con 2 puntos sobre una cota, pisos, material y
+   espesor declarado, sismo, tsunami y viento con semáforo y supuestos; **simulación 3D** con
+   mapa de calor, vaivén sísmico (exagerado) y agua de tsunami.
+6. **Privacidad**: release sin permiso de internet y sin telemetría de ONNX Runtime.
 
-## Tests ejecutados (último run)
+## Tests (último run: todos OK)
 | Suite | Comando | Resultado |
 |---|---|---|
 | structura-data | `python -m unittest discover -s tests -t .` | 85 OK |
-| structura-core | idem | 17 OK (incluye CUDA AMP) |
-| structura_model | `dart test` | 5 OK |
-| structura_geometry | `dart test` | 8 OK |
-| structura_pipeline | `dart test` | 9 OK |
-| structura-mobile | `flutter test` | 23 OK |
-| Android E2E | `flutter test integration_test\device_e2e_test.dart -d emulator-5554` | 1 OK (2 corridas) |
-| Release | `powershell -File tool\verify_release.ps1` | sin permisos de red · sin telemetría ORT · clases ORT conservadas |
+| structura-core | idem | 18 OK (incluye AMP CUDA, paridad ONNX y cuantización INT8) |
+| structura_model / vision / geometry / pipeline / sim | `dart test` | 5 / 6 / 8 / 9 / 9 OK |
+| structura-mobile | `flutter test` | 24 OK (incluye foto → modelo y flujo análisis → escala → evaluación → 3D) |
+| Android E2E | `flutter test integration_test\device_e2e_test.dart -d emulator-5554` | 1 OK (INT8 en el dispositivo) |
+| Release | `powershell -File tool\verify_release.ps1` | sin red · sin telemetría · clases ONNX conservadas |
 
-## Mediciones (emulador x86_64 — NO representan al Galaxy S26 Ultra)
-| Medida | Valor |
-|---|---|
-| Inferencia por tile 512² (ONNX Runtime CPU, debug) | ~438–454 ms |
-| Inferencia por tile (release, PDF 9 tiles) | ~337 ms |
-| Vectorización / malla (1100×800) | 57–63 ms / 13 ms |
-| Arranque en frío (release, `am start -W`) | 1,33 s |
-| Memoria tras análisis (release, PSS) | 160 MB |
-| APK release arm64-v8a | 60,7 MB (universal: 164 MB) |
-| PC: inferencia por tile RTX 5070 FP16 | 2,7 ms mediana |
+**Total: 164 tests automatizados más la prueba E2E en Android.**
+
+## Mediciones
+| Medida | Valor | Dónde |
+|---|---|---|
+| Detección clásica (foto 1007×797) | 106 ms | emulador x86_64, release |
+| Vision AI INT8 por tile 512² | ~596 ms (debug) | emulador x86_64; en la CPU de la PC 29,7 ms frente a 53,5 ms de FP32 |
+| Modelo IA | 7,41 MB → 1,92 MB (INT8), acuerdo de argmax 100 % | PC |
+| APK release arm64 | 56,5 MB | — |
+| Arranque en frío (release) | 1,33 s | emulador |
+| Memoria tras el análisis con IA (release) | 160 MB PSS | emulador |
+
+> Los tiempos del emulador **no representan** un teléfono ARM real. En el emulador x86 el
+> INT8 fue más lento que el FP32; hay que medirlo en un dispositivo ARM (S26 Ultra y uno de gama baja).
 
 ## Defectos encontrados y corregidos en esta etapa
-1. Checkpoint no cargable con `weights_only=True` (objeto `TorchVersion`).
-2. `UnicodeEncodeError` al imprimir en consolas Windows cp1252.
-3. Conflicto de nombre `Column` (Building Model vs. Flutter) → `ColumnElement`.
-4. Desbordes de layout en teléfono y tablet (detectados por tests de widgets).
-5. Isolate de análisis podía colgarse ante un error no capturado.
-6. **Privacidad**: onnxruntime-android agrega `INTERNET`, `ACCESS_NETWORK_STATE` y un
-   ContentProvider de telemetría que se ejecuta al arrancar → eliminados (D-05), verificado en el APK.
-7. **Crash en release**: R8 ofuscaba las clases JNI de ONNX Runtime → reglas `keep`; verificado
-   analizando un PDF en release.
-8. Ícono y pantalla de arranque nativos eran los de Flutter → identidad STRUCTURA.
+1. `Isolate.run` capturaba contexto no enviable: el análisis clásico habría fallado siempre en el dispositivo.
+2. La cuantización de ONNX Runtime fallaba con rutas Unicode en Windows.
+3. Fotos: muros fragmentados (28 → 11) y una puerta falsa junto a una columna adosada.
+4. Desbordes de layout en teléfono (desplegable de suelo, leyenda 3D, píldoras de estado).
+5. Calibración por muro inviable cuando la cota abarca varios muros: se agregó la calibración por 2 puntos.
+6. El espesor detectado en una foto producía relaciones de flexión engañosas: ahora es declarable y visible.
 
-## Qué falta (prioridad)
-1. **Decisiones del responsable** (bloquean el dataset real): convención de puertas (D-17) y
-   función de pérdida (`docs/EVALUACION_LOSS.md`). Además: tipos de plano, tipos de construcción,
-   anotación manual vs. asistida.
-2. **Dataset real**: anotar el primer lote con LabelMe (manual en `structura-data/docs`).
-3. **Dispositivo físico** (S26 Ultra): instalar `app-arm64-v8a-release.apk` y medir ms/tile,
-   memoria y temperatura; luego evaluar XNNPACK / NNAPI-NPU con medición, no por suposición.
-4. Red: resolver el acceso a pub.dev (otra red o proveedor) para poder sumar paquetes.
-5. App: corrección manual de detecciones (la procedencia `userCorrected` ya está modelada),
-   exportar/compartir GLB, ambientes (Spatial AI), cotas (Dimension AI).
-6. Tamaño: build reducido de ONNX Runtime (solo operadores del modelo) para bajar ~30 MB.
-7. Conocido: el APK **debug** lanzado sin `flutter run` queda en la pantalla nativa; usar
-   `flutter run` en debug o el APK release/profile. No se investigó más (no afecta release).
-8. Instalar Python 3.11 si se quiere respetar la versión de la especificación (opcional).
+## Limitaciones conocidas (honestas)
+- Motor clásico: **no detecta escaleras ni muros dibujados con línea simple**. Las columnas
+  adosadas a un muro se toman como muro. Funciona mejor con plantas ortogonales.
+- El modelo de IA empaquetado está entrenado **solo con planos sintéticos** (IoU 0 en
+  puertas, ventanas y columnas). Falta un dataset real.
+- Evaluación: métodos simplificados. No reemplaza el cálculo ni la verificación normativa.
+- No se probó en un teléfono físico (ninguno conectado).
+
+## Pendientes (prioridad)
+1. **Decisiones del responsable**: convención de anotación de puertas (D-17), función de
+   pérdida (D-18, ver `EVALUACION_LOSS.md`), tipos de plano y edificio, anotación manual o asistida.
+2. **Dataset real** y re-entrenamiento de Vision AI (para cubrir escaleras y muros de línea simple).
+3. Probar en el S26 Ultra y en un celular de gama baja: tiempos, memoria, temperatura.
+4. Corrección manual de detecciones en el editor (la procedencia `userCorrected` ya está modelada).
+5. Exportar y compartir el GLB y un informe PDF de la evaluación para clientes y empresas.
+6. Red: acceso a pub.dev para poder sumar paquetes.
 
 ## Para continuar
 ```powershell
-cd C:\STRUCTURA; git checkout develop; git log --oneline | Select-Object -First 5
-# Emulador: C:\Users\Agusr\AppData\Local\Android\sdk\emulator\emulator.exe -avd Pixel_9
+cd C:\STRUCTURA; git checkout develop; git log --oneline | Select-Object -First 8
+C:\Users\Agusr\AppData\Local\Android\sdk\emulator\emulator.exe -avd Pixel_9
 cd structura-mobile; flutter run -d emulator-5554
 ```

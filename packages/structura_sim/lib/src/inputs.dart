@@ -94,7 +94,12 @@ class BuildingInput {
 
   /// Coeficiente de rozamiento fundación-suelo para deslizamiento (tsunami).
   final double frictionCoefficient;
+
+  /// Espesor real de muros declarado por el profesional (m). null = usar el
+  /// espesor detectado en el plano (puede ser impreciso en fotos).
+  final double? wallThicknessM;
   const BuildingInput({
+    this.wallThicknessM,
     this.floors = 1,
     this.storyHeightM = 2.6,
     this.material = WallMaterial.confinedMasonry,
@@ -112,6 +117,7 @@ class BuildingInput {
           'response_factor_r': material.responseFactor,
         },
         'slab_load_kpa': slabLoadKpa,
+        'wall_thickness_m': wallThicknessM,
         'friction_coefficient': frictionCoefficient,
       };
 }

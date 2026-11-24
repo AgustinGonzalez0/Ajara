@@ -50,6 +50,8 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
   int _floors = 1;
   double _story = 2.6;
   WallMaterial _material = WallMaterial.confinedMasonry;
+  bool _declareThickness = false;
+  double _thickness = 0.15;
   // Sismo
   double _pga = 0.3;
   SoilClass _soil = SoilClass.firm;
@@ -75,7 +77,11 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
       final p = await ref.read(projectStoreProvider).load(widget.projectId);
       final r = await ref.read(screeningServiceProvider).evaluate(
             p,
-            BuildingInput(floors: _floors, storyHeightM: _story, material: _material),
+            BuildingInput(
+                floors: _floors,
+                storyHeightM: _story,
+                material: _material,
+                wallThicknessM: _declareThickness ? _thickness : null),
             seismic: SeismicInput(pgaG: _pga, soil: _soil),
             tsunami: _tsunami ? TsunamiInput(inundationDepthM: _depth, direction: _waterDir) : null,
             wind: _wind ? WindInput(speedMs: _windSpeed, direction: _windDir) : null,
@@ -107,7 +113,7 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
                 _ScaleCard(projectId: widget.projectId, model: m),
                 if (m.hasVerifiedScale) ...[
                   const SectionLabel('2 · Edificio'),
-                  _buildingCard(context),
+                  _buildingCard(context, m),
                   const SectionLabel('3 · Peligros'),
                   _hazardsCard(context),
                   const SizedBox(height: Gap.lg),
@@ -141,12 +147,21 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
       ),
       SizedBox(
           width: 70,
-          child: Text('${value.toStringAsFixed(value < 10 ? 2 : 0)} $unit',
+          child: Text('${fmt(value, value < 10 ? 2 : 0)} $unit',
               textAlign: TextAlign.end, style: t.textTheme.bodyMedium?.copyWith(fontFeatures: tabular))),
     ]);
   }
 
-  Widget _buildingCard(BuildContext context) => Card(
+  /// Espesor mediano detectado (m) según la escala verificada.
+  double? _detectedThickness(BuildingModel m) {
+    final s = m.scale;
+    if (s == null || !s.verified) return null;
+    final t = m.allElements.whereType<Wall>().map((w) => w.thicknessPx).toList()..sort();
+    if (t.isEmpty) return null;
+    return s.pxToMeters(t[t.length ~/ 2]);
+  }
+
+  Widget _buildingCard(BuildContext context, BuildingModel model) => Card(
         child: Padding(
           padding: const EdgeInsets.all(Gap.lg),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -169,6 +184,20 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
             Text('Valores indicativos: τ = ${_material.shearStrength} MPa · f = ${_material.flexuralStrength} MPa · '
                 'γ = ${_material.unitWeight} kN/m³ · R = ${_material.responseFactor}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const Divider(height: Gap.xl),
+            SwitchListTile(
+              key: const Key('declare_thickness'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Declarar espesor real de muros'),
+              subtitle: Text(_detectedThickness(model) == null
+                  ? 'Espesor detectado no disponible'
+                  : 'Detectado en el plano: ${fmt(_detectedThickness(model)! * 100, 1)} cm. '
+                      'En fotos puede ser impreciso: conviene declararlo.'),
+              value: _declareThickness,
+              onChanged: (v) => setState(() => _declareThickness = v),
+            ),
+            if (_declareThickness)
+              _num('Espesor de muros', _thickness, 'm', (v) => setState(() => _thickness = v), min: 0.08, max: 0.40, div: 32),
           ]),
         ),
       );
@@ -244,6 +273,7 @@ class _ScaleCardState extends ConsumerState<_ScaleCard> {
   String? _wallId;
   final _meters = TextEditingController();
   bool _editing = false;
+  bool _wallMethod = false;
   String? _error;
 
   @override
@@ -291,8 +321,25 @@ class _ScaleCardState extends ConsumerState<_ScaleCard> {
       child: Padding(
         padding: const EdgeInsets.all(Gap.lg),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Para calcular fuerzas reales hace falta una medida verdadera. Elegí un muro cuyo largo total conozcas '
-              '(por una cota del plano) e ingresalo.', style: t.textTheme.bodyMedium),
+          Text('Para calcular fuerzas reales hace falta una medida verdadera. Marcá sobre el plano los dos extremos '
+              'de una cota que conozcas (por ejemplo, el ancho total) e ingresá su valor.', style: t.textTheme.bodyMedium),
+          const SizedBox(height: Gap.md),
+          FilledButton.icon(
+            key: const Key('open_calibrate'),
+            onPressed: () async {
+              await context.push('/projects/${widget.projectId}/calibrate');
+              ref.invalidate(simModelProvider(widget.projectId));
+            },
+            icon: const Icon(Icons.straighten_rounded),
+            label: const Text('Calibrar con una cota del plano'),
+          ),
+          const SizedBox(height: Gap.sm),
+          TextButton(
+            key: const Key('toggle_wall_method'),
+            onPressed: () => setState(() => _wallMethod = !_wallMethod),
+            child: Text(_wallMethod ? 'Ocultar método por muro' : 'O usar el largo de un muro detectado'),
+          ),
+          if (_wallMethod) ...[
           const SizedBox(height: Gap.md),
           DropdownButtonFormField<String>(
             key: const Key('scale_wall'),
@@ -319,6 +366,7 @@ class _ScaleCardState extends ConsumerState<_ScaleCard> {
           if (_error != null) ...[const SizedBox(height: Gap.sm), NoticeBanner(_error!, color: StructuraColors.danger)],
           const SizedBox(height: Gap.md),
           FilledButton.tonal(key: const Key('save_scale'), onPressed: _save, child: const Text('Guardar escala verificada')),
+          ],
         ]),
       ),
     );
@@ -326,6 +374,18 @@ class _ScaleCardState extends ConsumerState<_ScaleCard> {
 }
 
 double longSide(Rect2 r) => r.width > r.height ? r.width : r.height;
+
+/// Número con coma decimal (formato local).
+String fmt(double v, int decimals) => v.toStringAsFixed(decimals).replaceAll('.', ',');
+
+/// Valor de un indicador: relaciones muy altas se muestran acotadas para no
+/// transmitir una precisión que el método simplificado no tiene.
+String formatIndicator(Indicator i) {
+  if (!i.value.isFinite) return 'sin capacidad';
+  if (i.unit.isEmpty && i.value >= 10) return '> 10 ×';
+  final unit = i.unit.isEmpty ? '' : ' ${i.unit}';
+  return '${fmt(i.value, 2)}$unit';
+}
 
 class _HazardCard extends StatefulWidget {
   final HazardResult result;
@@ -375,7 +435,7 @@ class _HazardCardState extends State<_HazardCard> {
                   ),
                   const SizedBox(width: Gap.sm),
                   Text(
-                    i.value.isFinite ? '${i.value.toStringAsFixed(i.unit == '%' ? 2 : 2)}${i.unit.isEmpty ? '' : ' ${i.unit}'}' : 'sin capacidad',
+                    formatIndicator(i),
                     style: t.textTheme.titleSmall?.copyWith(fontFeatures: tabular, color: statusColorOf(i.status)),
                   ),
                 ]),

@@ -50,6 +50,34 @@ class ScreeningService {
     return updated;
   }
 
+  /// Fija la escala con dos puntos del plano (p. ej., los extremos de una cota) y la
+  /// distancia real entre ellos. Método recomendado: no depende de la detección.
+  Future<BuildingModel> calibrateWithPoints(ProjectManifest p, Point2 a, Point2 b, double meters) async {
+    if (!(meters > 0 && meters < 1000)) throw const SimulationException('Ingresá una distancia válida en metros.');
+    final px = a.distanceTo(b);
+    if (px < 20) throw const SimulationException('Los puntos están demasiado cerca: marcá los extremos de una cota larga.');
+    final model = await loadModel(p);
+    final scale = PlanScale(
+      pxPerUnit: px / meters,
+      unit: LengthUnit.m,
+      verified: true,
+      source: Source(Provenance.userCreated,
+          timestamp: DateTime.now().toUtc(),
+          note: 'Calibrado con 2 puntos (${px.toStringAsFixed(0)} px) = ${meters.toStringAsFixed(3)} m'),
+    );
+    final updated = model.copyWith(scale: scale);
+    await store.writeBytes(p.id, _modelRel(_active(p)),
+        utf8.encode(const JsonEncoder.withIndent('  ').convert(updated.toJson())));
+    await store.appendHistory(p.id, 'scale_calibrated', {
+      'method': 'two_points',
+      'a': a.toJson(),
+      'b': b.toJson(),
+      'meters': meters,
+      'px_per_m': scale.pxPerUnit,
+    });
+    return updated;
+  }
+
   Future<ScreeningReport> evaluate(ProjectManifest p, BuildingInput building,
       {required SeismicInput seismic, TsunamiInput? tsunami, WindInput? wind}) async {
     final model = await loadModel(p);

@@ -13,6 +13,7 @@
 /// Ninguna medida real se genera aquí: todo queda en píxeles del plano.
 library;
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:structura_model/structura_model.dart';
@@ -203,6 +204,22 @@ class Vectorizer {
               m = WallRect(x0, y0, x1 - x0, y1 - y0, _avgConf(a, b));
             }
           }
+          // Tramos paralelos lado a lado (láminas que deja una foto inclinada): misma
+          // extensión a lo largo del eje y espesor combinado de un solo muro.
+          if (m == null && a.horizontal == b.horizontal) {
+            final along0 = a.horizontal ? math.max(a.x, b.x) : math.max(a.y, b.y);
+            final along1 = a.horizontal ? math.min(a.x + a.w, b.x + b.w) : math.min(a.y + a.h, b.y + b.h);
+            final shorter = a.horizontal ? math.min(a.w, b.w) : math.min(a.h, b.h);
+            final touchAcross = a.horizontal
+                ? (b.y <= a.y + a.h + 1 && a.y <= b.y + b.h + 1)
+                : (b.x <= a.x + a.w + 1 && a.x <= b.x + b.w + 1);
+            final x0 = math.min(a.x, b.x), y0 = math.min(a.y, b.y);
+            final x1 = math.max(a.x + a.w, b.x + b.w), y1 = math.max(a.y + a.h, b.y + b.h);
+            final thick = a.horizontal ? y1 - y0 : x1 - x0;
+            if (touchAcross && along1 - along0 >= 0.6 * shorter && thick <= 1.7 * t) {
+              m = WallRect(x0, y0, x1 - x0, y1 - y0, _avgConf(a, b));
+            }
+          }
           if (m != null) {
             rects[i] = m;
             rects.removeAt(j);
@@ -215,9 +232,11 @@ class Vectorizer {
     // Fragmentos chicos (ambos lados ≤ 1,6 t) que tocan un muro mayor: se descartan.
     bool touches(WallRect a, WallRect b) =>
         a.x <= b.x + b.w + 1 && b.x <= a.x + a.w + 1 && a.y <= b.y + b.h + 1 && b.y <= a.y + a.h + 1;
+    bool small(WallRect r) => r.w <= 1.6 * t && r.h <= 1.6 * t;
+    bool sliver(WallRect r) => (r.w < r.h ? r.w : r.h) < 0.4 * t;
     return [
       for (final r in rects)
-        if (!(r.w <= 1.6 * t && r.h <= 1.6 * t && rects.any((o) => !identical(o, r) && (o.w > 1.6 * t || o.h > 1.6 * t) && touches(r, o)))) r
+        if (!((small(r) || sliver(r)) && rects.any((o) => !identical(o, r) && !small(o) && !sliver(o) && touches(r, o)))) r
     ];
   }
 

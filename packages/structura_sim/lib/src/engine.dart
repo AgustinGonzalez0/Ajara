@@ -122,7 +122,7 @@ class StructuralLayout {
   double get cmY => (minY + maxY) / 2;
 
   /// Construye la geometría estructural. Exige escala verificada (no se inventan metros).
-  factory StructuralLayout.fromModel(BuildingModel model) {
+  factory StructuralLayout.fromModel(BuildingModel model, {double? wallThicknessM}) {
     final s = model.scale;
     if (s == null || !s.verified) {
       throw const SimulationException(
@@ -134,7 +134,7 @@ class StructuralLayout {
       if (e is Wall) {
         final dx = e.end.x - e.start.x, dy = e.end.y - e.start.y;
         els.add(StructElement(e.id, false, dx.abs() >= dy.abs(), (e.start.x + e.end.x) / 2 * k,
-            (e.start.y + e.end.y) / 2 * k, e.lengthPx * k, e.thicknessPx * k));
+            (e.start.y + e.end.y) / 2 * k, e.lengthPx * k, wallThicknessM ?? e.thicknessPx * k));
       } else if (e is ColumnElement) {
         final r = e.footprint;
         els.add(StructElement(e.id, true, true, r.center.x * k, r.center.y * k, math.max(r.width, r.height) * k,
@@ -166,6 +166,12 @@ class ScreeningEngine {
 
   double get totalHeight => building.floors * building.storyHeightM;
 
+  /// Espesor mediano de muros usado en el cálculo (m).
+  double medianWallThickness() {
+    final t = layout.elements.where((e) => !e.isColumn).map((e) => e.thickness).toList()..sort();
+    return t.isEmpty ? 0 : t[t.length ~/ 2];
+  }
+
   /// Peso sísmico total (kN).
   double seismicWeight() {
     final wallVolume = layout.elements.fold<double>(0, (a, e) => a + e.area * building.storyHeightM);
@@ -179,6 +185,9 @@ class ScreeningEngine {
   }
 
   List<String> _baseAssumptions() => [
+        building.wallThicknessM != null
+            ? 'Espesor de muros declarado por el profesional: ${building.wallThicknessM!.toStringAsFixed(2)} m.'
+            : 'Espesor de muros tomado del plano detectado (mediana ${(medianWallThickness() * 100).toStringAsFixed(1)} cm): verificar.',
         'Material: ${building.material.label} (τ = ${building.material.shearStrength} MPa, '
             'f = ${building.material.flexuralStrength} MPa, γ = ${building.material.unitWeight} kN/m³) — valores indicativos.',
         '${building.floors} piso(s) de ${building.storyHeightM.toStringAsFixed(2)} m; muros de planta baja repetidos en altura.',
@@ -311,6 +320,10 @@ class ScreeningEngine {
     final sliding = force / (building.frictionCoefficient * w);
     final cap = shearCapacity(x: input.direction.alongX);
     final shearDc = cap == 0 ? double.infinity : force / cap;
+    // Muros paralelos al flujo: trabajan a corte (reparto ∝ área → misma relación para todos).
+    for (final e in layout.elements.where((e) => input.direction.alongX ? e.resistsX() : e.resistsY())) {
+      ratios.putIfAbsent(e.id, () => shearDc);
+    }
     return HazardResult(Hazard.tsunami, [
       Indicator('wall_out_of_plane', 'Muros perpendiculares al flujo (flexión)', maxWall, '', statusForRatio(maxWall),
           'Momento ${mDemand.toStringAsFixed(1)} kN·m/m por presión hidrodinámica + hidrostática en planta baja.'),
@@ -352,6 +365,9 @@ class ScreeningEngine {
     final force = p * width * totalHeight;
     final cap = shearCapacity(x: input.direction.alongX);
     final dc = cap == 0 ? double.infinity : force / cap;
+    for (final e in layout.elements.where((e) => input.direction.alongX ? e.resistsX() : e.resistsY())) {
+      ratios.putIfAbsent(e.id, () => dc);
+    }
     return HazardResult(Hazard.wind, [
       Indicator('facade_out_of_plane', 'Muros de fachada (flexión por presión)', maxWall, '', statusForRatio(maxWall),
           'Presión neta ${(p * 1000).toStringAsFixed(0)} Pa sobre muros exteriores perpendiculares al viento.'),
@@ -390,7 +406,10 @@ ScreeningReport runScreening(BuildingModel model, BuildingInput building,
   if (building.floors < 1 || building.storyHeightM <= 0) {
     throw const SimulationException('Cantidad de pisos y altura de piso deben ser positivas.');
   }
-  final engine = ScreeningEngine(StructuralLayout.fromModel(model), building);
+  if (building.wallThicknessM != null && !(building.wallThicknessM! > 0.03 && building.wallThicknessM! < 2)) {
+    throw const SimulationException('El espesor de muros declarado debe estar entre 0,03 y 2 m.');
+  }
+  final engine = ScreeningEngine(StructuralLayout.fromModel(model, wallThicknessM: building.wallThicknessM), building);
   return ScreeningReport(DateTime.now(), building, [
     engine.seismic(seismic),
     if (tsunami != null) engine.tsunami(tsunami),
