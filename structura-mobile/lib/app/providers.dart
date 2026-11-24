@@ -13,6 +13,7 @@ import '../data/project_store.dart';
 import '../platform/native_channels.dart';
 import '../services/analysis_service.dart';
 import '../services/model_registry.dart';
+import '../services/photo_importer.dart';
 import '../services/plan_importer.dart';
 
 class AppDirs {
@@ -124,16 +125,17 @@ class AnalysisController extends Notifier<AnalysisState> {
   @override
   AnalysisState build() => const AnalysisState();
 
-  Future<void> start(InstalledModel model) async {
+  /// [model] null = motor clásico sin IA (funciona en cualquier dispositivo).
+  Future<void> start({InstalledModel? model}) async {
     if (state.phase == AnalysisPhase.running) return;
-    final runner = ref.read(analysisRunnerProvider);
+    final AnalysisRunner? runner = model == null ? const ClassicAnalysisRunner() : ref.read(analysisRunnerProvider);
     if (runner == null) {
       state = const AnalysisState(
           phase: AnalysisPhase.unavailable,
-          message: 'Esta plataforma no tiene un runtime de IA disponible. El análisis requiere Android.');
+          message: 'Este dispositivo no puede ejecutar el modelo de IA. Usá el motor clásico (sin IA).');
       return;
     }
-    if (!model.hashVerified) {
+    if (model != null && !model.hashVerified) {
       state = const AnalysisState(phase: AnalysisPhase.failed, message: 'El modelo no superó la verificación SHA-256.');
       return;
     }
@@ -150,8 +152,8 @@ class AnalysisController extends Notifier<AnalysisState> {
       rasterSha256: plan.rasterSha256,
       dpi: plan.dpi,
       planId: plan.id,
-      modelJson: _descriptorJson(model),
-      modelPath: model.path,
+      modelJson: model == null ? const {} : _descriptorJson(model),
+      modelPath: model?.path ?? '',
       runId: newRunId(),
     );
     state = const AnalysisState(phase: AnalysisPhase.running);
@@ -210,6 +212,8 @@ class AnalysisController extends Notifier<AnalysisState> {
     };
   }
 }
+
+final photoImporterProvider = Provider<PhotoImporter>((ref) => PhotoImporter(ref.watch(projectStoreProvider)));
 
 final analysisControllerProvider =
     NotifierProvider.family<AnalysisController, AnalysisState, String>(AnalysisController.new);

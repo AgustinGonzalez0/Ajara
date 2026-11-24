@@ -8,9 +8,11 @@ import '../features/editor2d/editor_screen.dart';
 import '../features/import/import_screen.dart';
 import '../features/model3d/model_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
+import '../features/photo/photo_screen.dart';
 import '../features/project/new_project_screen.dart';
 import '../features/project/project_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/simulation/simulation_screen.dart';
 import '../features/splash/splash_screen.dart';
 import 'shell.dart';
 
@@ -25,6 +27,8 @@ abstract final class Routes {
   static String editor(String id) => '/projects/$id/editor';
   static String analysis(String id) => '/projects/$id/analysis';
   static String model3d(String id) => '/projects/$id/model';
+  static String photo(String id, {bool camera = true}) => '/projects/$id/photo?source=${camera ? 'camera' : 'gallery'}';
+  static String simulate(String id) => '/projects/$id/simulate';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -48,7 +52,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: 'import', builder: (_, s) => ImportScreen(projectId: s.pathParameters['id']!)),
           GoRoute(path: 'editor', builder: (_, s) => EditorScreen(projectId: s.pathParameters['id']!)),
           GoRoute(path: 'analysis', builder: (_, s) => AnalysisScreen(projectId: s.pathParameters['id']!)),
-          GoRoute(path: 'model', builder: (_, s) => ModelScreen(projectId: s.pathParameters['id']!)),
+          GoRoute(
+              path: 'model',
+              builder: (_, s) => ModelScreen(projectId: s.pathParameters['id']!, hazard: s.uri.queryParameters['hazard'])),
+          GoRoute(
+              path: 'photo',
+              builder: (_, s) => PhotoScreen(
+                  projectId: s.pathParameters['id']!, camera: s.uri.queryParameters['source'] != 'gallery')),
+          GoRoute(path: 'simulate', builder: (_, s) => SimulationScreen(projectId: s.pathParameters['id']!)),
         ],
       ),
     ],

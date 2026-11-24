@@ -17,6 +17,7 @@ const Map<String, List<double>> categoryColors = {
   'window': [0.45, 0.70, 0.95, 0.5],
   'column': [0.96, 0.75, 0.20, 1],
   'stairs': [0.67, 0.31, 0.75, 1],
+  'water': [0.18, 0.52, 0.95, 0.42],
 };
 
 class GlbWriter {

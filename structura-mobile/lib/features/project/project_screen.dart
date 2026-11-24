@@ -76,6 +76,8 @@ class _ProjectView extends ConsumerWidget {
         done: plan != null,
         actionLabel: plan == null ? 'Importar plano' : 'Reemplazar',
         onAction: () => context.push(Routes.import(p.id)),
+        thirdLabel: 'Foto',
+        onThird: () => context.push(Routes.photo(p.id)),
         secondaryLabel: plan == null ? null : 'Ver plano',
         onSecondary: () => context.push(Routes.editor(p.id)),
       ),
@@ -92,7 +94,7 @@ class _ProjectView extends ConsumerWidget {
         enabled: plan != null,
         actionLabel: analysis == null ? 'Analizar' : 'Ver análisis',
         onAction: () => context.push(Routes.analysis(p.id)),
-        warning: analysis?.isTestModel == true ? 'Resultado de un modelo de prueba' : null,
+        warning: analysis?.isTestModel == true ? 'Resultado no validado con planos reales' : null,
       ),
       _Step(
         n: 3,
@@ -113,6 +115,17 @@ class _ProjectView extends ConsumerWidget {
         enabled: analysis != null,
         actionLabel: 'Ver modelo 3D',
         onAction: () => context.push(Routes.model3d(p.id)),
+      ),
+      _Step(
+        n: 5,
+        icon: Icons.analytics_outlined,
+        title: 'Evaluación preliminar',
+        detail: 'Sismo, tsunami y viento: indicadores de demanda/capacidad y simulación 3D. '
+            'Requiere calibrar la escala con una medida real.',
+        done: false,
+        enabled: analysis != null,
+        actionLabel: 'Evaluar',
+        onAction: () => context.push(Routes.simulate(p.id)),
       ),
     ];
 
@@ -205,6 +218,8 @@ class _Step extends StatelessWidget {
   final VoidCallback onAction;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
+  final String? thirdLabel;
+  final VoidCallback? onThird;
   final String? warning;
   const _Step({
     required this.n,
@@ -217,6 +232,8 @@ class _Step extends StatelessWidget {
     this.enabled = true,
     this.secondaryLabel,
     this.onSecondary,
+    this.thirdLabel,
+    this.onThird,
     this.warning,
   });
 
@@ -257,6 +274,9 @@ class _Step extends StatelessWidget {
                 const SizedBox(height: Gap.md),
                 Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
                   FilledButton.tonal(onPressed: enabled ? onAction : null, child: Text(actionLabel)),
+                  if (thirdLabel != null)
+                    TextButton.icon(
+                        onPressed: enabled ? onThird : null, icon: const Icon(Icons.photo_camera_outlined, size: 18), label: Text(thirdLabel!)),
                   if (secondaryLabel != null) TextButton(onPressed: enabled ? onSecondary : null, child: Text(secondaryLabel!)),
                 ]),
               ]),

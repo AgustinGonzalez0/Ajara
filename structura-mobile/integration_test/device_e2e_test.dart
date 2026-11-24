@@ -109,7 +109,7 @@ void main() {
     // 4. Análisis real: isolate de fondo + ONNX Runtime nativo + modelo de prueba
     final ctrl = container.read(analysisControllerProvider(project.id).notifier);
     final sw = Stopwatch()..start();
-    final running = ctrl.start(model);
+    final running = ctrl.start(model: model);
     while (container.read(analysisControllerProvider(project.id)).phase == AnalysisPhase.running ||
         container.read(analysisControllerProvider(project.id)).phase == AnalysisPhase.idle) {
       await t.pump(const Duration(milliseconds: 200));

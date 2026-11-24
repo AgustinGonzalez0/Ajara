@@ -23,6 +23,15 @@ Future<void> settle(WidgetTester t, {int rounds = 12}) async {
   }
 }
 
+/// Avanza hasta que [finder] aparezca (E/S e isolates reales) o se agote el tiempo.
+Future<void> settleUntil(WidgetTester t, Finder finder, {Duration timeout = const Duration(seconds: 60)}) async {
+  final sw = Stopwatch()..start();
+  while (finder.evaluate().isEmpty && sw.elapsed < timeout) {
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    await t.pump(const Duration(milliseconds: 50));
+  }
+}
+
 class Harness {
   final Directory root;
   final ProjectStore store;
@@ -82,10 +91,10 @@ void main() {
     expect(find.text('Casa Núñez'), findsOneWidget); // aparece en recientes
   });
 
-  testWidgets('importar un PNG y abrir el análisis (sin runtime en esta plataforma)', (t) async {
+  testWidgets('flujo completo: importar → análisis clásico sin IA → escala → evaluación → simulación 3D', (t) async {
     phone(t);
     final root = tempDir();
-    final png = File('${root.path}/plano.png')..writeAsBytesSync(codedPlanPng(w: 320, h: 240));
+    final png = File('${root.path}/plano.png')..writeAsBytesSync(realisticPlanPng());
     final h = Harness(root);
     await t.pumpWidget(await h.app(onboardingDone: true, pick: png));
     await settle(t, rounds: 20);
@@ -94,23 +103,66 @@ void main() {
     await t.enterText(find.byKey(const Key('project_name')), 'Depto 3B');
     await t.tap(find.byKey(const Key('create_and_import')));
     await settle(t);
-    expect(find.text('Importar plano'), findsWidgets);
     await t.tap(find.byKey(const Key('pick_file')));
     await settle(t);
-    expect(find.text('Planta baja.png'), findsOneWidget);
     expect(find.textContaining('Tipo detectado: PNG'), findsOneWidget);
     await t.tap(find.byKey(const Key('do_import')));
     await settle(t, rounds: 20);
     expect(find.text('Depto 3B'), findsOneWidget);
-    expect(find.textContaining('320×240 px'), findsOneWidget);
-    expect(find.text('PLANO IMPORTADO'), findsOneWidget);
+    expect(find.textContaining('640×480 px'), findsOneWidget);
 
+    // Análisis con el motor clásico (sin IA): funciona en cualquier plataforma.
     await t.tap(find.text('Analizar'));
     await settle(t);
-    expect(find.textContaining('requiere Android'), findsOneWidget);
-    expect(find.text('MODELO DE PRUEBA'), findsOneWidget);
-    final run = t.widget<FilledButton>(find.byKey(const Key('run_analysis')));
-    expect(run.onPressed, isNull); // no se simula un análisis
+    expect(find.text('Clásico — sin IA'), findsOneWidget);
+    expect(find.text('RECOMENDADO'), findsOneWidget);
+    await t.ensureVisible(find.byKey(const Key('run_analysis')));
+    await t.tap(find.byKey(const Key('run_analysis')));
+    await settleUntil(t, find.text('Análisis completado y guardado en el proyecto.'));
+    expect(find.text('Análisis completado y guardado en el proyecto.'), findsOneWidget);
+    final saved = await t.runAsync(() => h.store.list());
+    final rec = saved!.single.activeAnalysis!;
+    expect(rec.model['engine'], 'classic');
+    expect(rec.counts['wall'], greaterThanOrEqualTo(5));
+    expect(rec.counts['door'], 1);
+    expect(rec.counts['window'], 1);
+    expect(rec.counts['column'], 1);
+
+    // Evaluación preliminar: primero la escala verificada.
+    await t.pageBack();
+    await settle(t);
+    await t.scrollUntilVisible(find.text('Evaluar'), 300, scrollable: find.byType(Scrollable).last);
+    await t.pump();
+    await t.tap(find.text('Evaluar'));
+    await settle(t, rounds: 20);
+    expect(find.textContaining('No determina que la estructura sea segura'), findsOneWidget);
+    expect(find.byKey(const Key('run_screening')), findsNothing); // sin escala no se evalúa
+    await t.tap(find.byKey(const Key('scale_wall')));
+    await settle(t, rounds: 3);
+    await t.tap(find.textContaining('w0001').last);
+    await settle(t, rounds: 3);
+    await t.enterText(find.byKey(const Key('scale_meters')), '11,2');
+    await t.tap(find.byKey(const Key('save_scale')));
+    await settle(t, rounds: 20);
+    expect(find.textContaining('Escala verificada'), findsOneWidget);
+    await t.scrollUntilVisible(find.byKey(const Key('run_screening')), 300, scrollable: find.byType(Scrollable).last);
+    await t.pump();
+    await t.tap(find.byKey(const Key('run_screening')));
+    await settle(t, rounds: 20);
+    await t.scrollUntilVisible(find.text('Sismo / terremoto'), 300, scrollable: find.byType(Scrollable).last);
+    expect(find.text('Sismo / terremoto'), findsOneWidget);
+    expect(find.text('Corte basal dirección X (demanda/capacidad)'), findsOneWidget);
+    final project = (await t.runAsync(() => h.store.list()))!.single;
+    final report = File('${h.store.projectDir(project.id).path}/${project.activeAnalysis!.dir}/screening.json');
+    expect(await t.runAsync(() => report.exists()), isTrue);
+
+    await t.scrollUntilVisible(find.byKey(const Key('view3d_seismic')), 200, scrollable: find.byType(Scrollable).last);
+    await t.pump();
+    await t.tap(find.byKey(const Key('view3d_seismic')));
+    await settle(t, rounds: 20);
+    expect(find.text('Simulación 3D'), findsOneWidget);
+    expect(find.text('SIMULACIÓN PRELIMINAR'), findsOneWidget);
+    expect(find.textContaining('Altura total declarada'), findsOneWidget);
   });
 
   testWidgets('proyecto analizado: editor 2D y modelo 3D desde disco (sin re-procesar)', (t) async {
@@ -160,7 +212,7 @@ void main() {
     await t.tap(find.text('Analizado'));
     await settle(t);
     expect(find.text('ANALIZADO'), findsOneWidget);
-    expect(find.text('RESULTADO DE UN MODELO DE PRUEBA'), findsOneWidget);
+    expect(find.text('RESULTADO NO VALIDADO CON PLANOS REALES'), findsOneWidget);
 
     await t.ensureVisible(find.text('Abrir editor 2D'));
     await t.pump();

@@ -106,6 +106,9 @@ RasterResult canonicalizeRaster(Uint8List bytes, String type) {
   return RasterResult(img.encodePng(image, level: 6), image.width, image.height);
 }
 
+/// Nivel superior: el cierre solo captura sus argumentos (enviables entre isolates).
+Future<RasterResult> _canonicalizeInIsolate(Uint8List bytes, String type) => Isolate.run(() => canonicalizeRaster(bytes, type));
+
 /// Rasterizador de PDF (implementación nativa por plataforma).
 abstract interface class PdfRasterizer {
   bool get isAvailable;
@@ -161,7 +164,7 @@ class PlanImporter {
       dpiSource = 'pdf_render';
     } else {
       final bytes = await original.readAsBytes();
-      raster = await Isolate.run(() => canonicalizeRaster(bytes, type));
+      raster = await _canonicalizeInIsolate(bytes, type);
       await store.writeBytes(project.id, rasterRel, raster.png);
     }
     final plan = PlanSource(

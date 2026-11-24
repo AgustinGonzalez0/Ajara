@@ -28,13 +28,13 @@ class _NewProjectScreenState extends ConsumerState<NewProjectScreen> {
     super.dispose();
   }
 
-  Future<void> _create({required bool thenImport}) async {
+  Future<void> _create({required bool thenImport, bool photo = false}) async {
     if (!_form.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
       final m = await ref.read(projectsProvider.notifier).create(_name.text, _desc.text, _type);
       if (!mounted) return;
-      context.pushReplacement(thenImport ? Routes.import(m.id) : Routes.project(m.id));
+      context.pushReplacement(photo ? Routes.photo(m.id) : (thenImport ? Routes.import(m.id) : Routes.project(m.id)));
     } on Object catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo crear el proyecto: $e')));
@@ -46,6 +46,7 @@ class _NewProjectScreenState extends ConsumerState<NewProjectScreen> {
   @override
   Widget build(BuildContext context) {
     final importFirst = GoRouterState.of(context).uri.queryParameters['import'] == '1';
+    final photoFirst = GoRouterState.of(context).uri.queryParameters['photo'] == '1';
     final t = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Nuevo proyecto')),
@@ -84,6 +85,13 @@ class _NewProjectScreenState extends ConsumerState<NewProjectScreen> {
                     style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
                 const SizedBox(height: Gap.xxl),
                 FilledButton.icon(
+                  key: const Key('create_and_photo'),
+                  onPressed: _saving ? null : () => _create(thenImport: false, photo: true),
+                  icon: const Icon(Icons.photo_camera_rounded),
+                  label: const Text('Crear y fotografiar plano'),
+                ),
+                const SizedBox(height: Gap.md),
+                if (!photoFirst) FilledButton.tonalIcon(
                   key: const Key('create_and_import'),
                   onPressed: _saving ? null : () => _create(thenImport: true),
                   icon: const Icon(Icons.upload_file_rounded),

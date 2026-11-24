@@ -234,7 +234,7 @@ class _LayerPanel extends StatelessWidget {
       _toggle('Vectores (Building Model)', 'vec', showVectors, data.model != null),
       if (data.project.activeAnalysis?.isTestModel == true) ...[
         const SizedBox(height: Gap.md),
-        const NoticeBanner('Detecciones de un modelo de prueba entrenado con planos sintéticos: no son confiables en planos reales.',
+        NoticeBanner('Detecciones sin validación con planos reales: ${data.project.activeAnalysis!.model['trust_label']}',
             icon: Icons.science_outlined),
       ],
       if (data.model == null) ...[

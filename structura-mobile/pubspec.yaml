@@ -19,6 +19,8 @@ dependencies:
   path: ^1.9.1
   uuid: ^4.6.0
   crypto: ^3.0.7
+  # Cámara y galería del sistema (sin permiso de cámara propio, sin red)
+  image_picker: ^1.2.3
   # Imágenes (PNG/JPG/TIFF en Dart puro) y matemática 3D
   image: ^4.13.1
   vector_math: ^2.4.2
@@ -29,6 +31,10 @@ dependencies:
     path: ../packages/structura_geometry
   structura_pipeline:
     path: ../packages/structura_pipeline
+  structura_vision:
+    path: ../packages/structura_vision
+  structura_sim:
+    path: ../packages/structura_sim
 
 dev_dependencies:
   flutter_test:

@@ -132,6 +132,25 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820),
             child: ListView(padding: const EdgeInsets.all(Gap.xl), children: [
+              Row(children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    key: const Key('photo_camera'),
+                    onPressed: () => context.push(Routes.photo(widget.projectId)),
+                    icon: const Icon(Icons.photo_camera_rounded),
+                    label: const Text('Tomar foto'),
+                  ),
+                ),
+                const SizedBox(width: Gap.md),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => context.push(Routes.photo(widget.projectId, camera: false)),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Foto de galería'),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: Gap.md),
               _DropZone(onTap: _busy ? null : _pick, picked: picked, type: _type),
               if (_error != null) ...[
                 const SizedBox(height: Gap.md),

@@ -1,12 +1,14 @@
 /// Renderizador 3D por software sobre Canvas.
 ///
-/// Decisión: no hay un paquete 3D mantenido disponible offline en este entorno
-/// y las alternativas comunes (WebView + model-viewer, flutter_cube) agregan
-/// dependencias pesadas o abandonadas. Para mallas arquitectónicas (miles de
-/// triángulos planos) alcanza con: proyección en perspectiva, descarte de caras
-/// traseras, orden por profundidad (pintor) y sombreado plano, dibujando todo
-/// en UNA llamada `drawVertices`. Si en el futuro se necesitan cientos de miles
-/// de triángulos, se reemplaza por un renderer GPU sin tocar la malla.
+/// Decisión: no hay un paquete 3D mantenido disponible offline y las alternativas
+/// comunes agregan dependencias pesadas o abandonadas. Para mallas arquitectónicas
+/// (miles de triángulos planos) alcanza con proyección en perspectiva, descarte de
+/// caras traseras, orden por profundidad (pintor) y sombreado plano, dibujando todo
+/// en UNA llamada `drawVertices`. Funciona igual en celulares de gama baja.
+///
+/// Extras para la evaluación preliminar: colores por elemento (mapa de calor de
+/// demanda/capacidad), deformación lateral animada (vaivén sísmico, proporcional a
+/// la altura) y mallas superpuestas (p. ej., el agua del tsunami).
 library;
 
 import 'dart:math' as math;
@@ -37,41 +39,47 @@ class RenderMesh {
   final Float64List normals; // 3 por triángulo
   final Int32List baseColors; // ARGB por triángulo
   final List<String> categories; // por triángulo
+  final List<String> elementIds; // por triángulo (id del Building Model)
   final Aabb3 bounds;
-  RenderMesh._(this.positions, this.normals, this.baseColors, this.categories, this.bounds);
+  RenderMesh._(this.positions, this.normals, this.baseColors, this.categories, this.elementIds, this.bounds);
 
   int get triangleCount => baseColors.length;
 
-  factory RenderMesh.fromBuildingMesh(BuildingMesh mesh) {
-    final pos = <double>[], nor = <double>[], cols = <int>[], cats = <String>[];
+  static int argbOf(List<double> c) =>
+      (((c[3] * 255).round() & 0xff) << 24) |
+      (((c[0] * 255).round() & 0xff) << 16) |
+      (((c[1] * 255).round() & 0xff) << 8) |
+      ((c[2] * 255).round() & 0xff);
+
+  factory RenderMesh.fromParts(Iterable<MeshPart> parts) {
+    final pos = <double>[], nor = <double>[], cols = <int>[], cats = <String>[], ids = <String>[];
     final mn = Vector3.all(double.infinity), mx = Vector3.all(double.negativeInfinity);
-    for (final part in mesh.parts.values) {
-      final c = categoryColors[part.category] ?? const [0.8, 0.8, 0.8, 1.0];
-      final argb = (((c[3] * 255).round() & 0xff) << 24) |
-          (((c[0] * 255).round() & 0xff) << 16) |
-          (((c[1] * 255).round() & 0xff) << 8) |
-          ((c[2] * 255).round() & 0xff);
+    for (final part in parts) {
+      final argb = argbOf(categoryColors[part.category] ?? const [0.8, 0.8, 0.8, 1.0]);
       for (var t = 0; t < part.indices.length; t += 3) {
         for (var k = 0; k < 3; k++) {
           final i = part.indices[t + k] * 3;
-          final v = Vector3(part.positions[i], part.positions[i + 1], part.positions[i + 2]);
-          pos.addAll([v.x, v.y, v.z]);
-          mn.x = math.min(mn.x, v.x);
-          mn.y = math.min(mn.y, v.y);
-          mn.z = math.min(mn.z, v.z);
-          mx.x = math.max(mx.x, v.x);
-          mx.y = math.max(mx.y, v.y);
-          mx.z = math.max(mx.z, v.z);
+          final x = part.positions[i], y = part.positions[i + 1], z = part.positions[i + 2];
+          pos.addAll([x, y, z]);
+          mn.x = math.min(mn.x, x);
+          mn.y = math.min(mn.y, y);
+          mn.z = math.min(mn.z, z);
+          mx.x = math.max(mx.x, x);
+          mx.y = math.max(mx.y, y);
+          mx.z = math.max(mx.z, z);
         }
         final i0 = part.indices[t] * 3;
         nor.addAll([part.normals[i0], part.normals[i0 + 1], part.normals[i0 + 2]]);
         cols.add(argb);
         cats.add(part.category);
+        ids.add(t ~/ 3 < part.triangleElementIds.length ? part.triangleElementIds[t ~/ 3] : '');
       }
     }
-    return RenderMesh._(Float64List.fromList(pos), Float64List.fromList(nor), Int32List.fromList(cols), cats,
+    return RenderMesh._(Float64List.fromList(pos), Float64List.fromList(nor), Int32List.fromList(cols), cats, ids,
         cols.isEmpty ? Aabb3.minMax(Vector3.zero(), Vector3.zero()) : Aabb3.minMax(mn, mx));
   }
+
+  factory RenderMesh.fromBuildingMesh(BuildingMesh mesh) => RenderMesh.fromParts(mesh.parts.values);
 
   /// Cámara inicial que encuadra toda la malla.
   OrbitCamera frame() {
@@ -81,6 +89,14 @@ class RenderMesh {
   }
 }
 
+/// Deformación lateral para visualizar el vaivén sísmico (exagerada, no es un resultado).
+class Sway {
+  final double amplitude; // desplazamiento en la cima (unidades de malla)
+  final bool alongX;
+  final double height; // altura de referencia (unidades de malla)
+  const Sway(this.amplitude, this.alongX, this.height);
+}
+
 class RenderStats {
   final int drawn;
   final int culled;
@@ -88,10 +104,40 @@ class RenderStats {
   const RenderStats(this.drawn, this.culled, this.time);
 }
 
-/// Proyecta y ordena los triángulos visibles. Devuelve los vértices listos para dibujar.
-(Vertices?, RenderStats) buildFrame(RenderMesh mesh, OrbitCamera cam, Size size, Set<String> hidden) {
+/// Color del mapa de calor para una relación demanda/capacidad.
+int heatColor(double ratio) {
+  if (!ratio.isFinite) return 0xFFB3261E;
+  // 0 → verde, 0,7 → amarillo, ≥1 → rojo.
+  final r = ratio.clamp(0.0, 1.2);
+  late double rr, gg, bb;
+  if (r <= 0.7) {
+    final t = r / 0.7;
+    rr = 0.24 + t * (0.96 - 0.24);
+    gg = 0.75 + t * (0.75 - 0.75);
+    bb = 0.50 - t * 0.30;
+  } else {
+    final t = ((r - 0.7) / 0.3).clamp(0.0, 1.0);
+    rr = 0.96 - t * 0.01;
+    gg = 0.75 - t * 0.55;
+    bb = 0.20 - t * 0.05;
+  }
+  return 0xFF000000 | ((rr * 255).round() << 16) | ((gg * 255).round() << 8) | (bb * 255).round();
+}
+
+/// Proyecta y ordena los triángulos visibles de todas las mallas.
+(Vertices?, RenderStats) buildFrame(
+  RenderMesh mesh,
+  OrbitCamera cam,
+  Size size,
+  Set<String> hidden, {
+  Map<String, int>? colorOverride,
+  Sway? sway,
+  List<RenderMesh> overlays = const [],
+}) {
   final sw = Stopwatch()..start();
-  if (size.isEmpty || mesh.triangleCount == 0) return (null, RenderStats(0, 0, sw.elapsed));
+  final meshes = [mesh, ...overlays];
+  final total = meshes.fold<int>(0, (a, m) => a + m.triangleCount);
+  if (size.isEmpty || total == 0) return (null, RenderStats(0, 0, sw.elapsed));
   final view = makeViewMatrix(cam.eye, cam.target, Vector3(0, 1, 0));
   final near = math.max(0.001, cam.distance * 0.01);
   final proj = makePerspectiveMatrix(cam.fovY, size.width / size.height, near, cam.distance * 20);
@@ -99,42 +145,62 @@ class RenderStats {
   final eye = cam.eye;
   final light = (eye - cam.target).normalized() + Vector3(0.3, 0.8, 0.2);
   light.normalize();
-  final n = mesh.triangleCount;
-  final depth = Float64List(n);
-  final screen = Float32List(n * 6);
+  final depth = Float64List(total);
+  final screen = Float32List(total * 6);
+  final shadedColor = Int32List(total);
   final visible = <int>[];
   var culled = 0;
-  final p = mesh.positions;
   final v = Vector4.zero();
-  for (var t = 0; t < n; t++) {
-    if (hidden.contains(mesh.categories[t])) continue;
-    final b = t * 9;
-    // Descarte de caras traseras (normal vs. dirección a la cámara).
-    final nx = mesh.normals[t * 3], ny = mesh.normals[t * 3 + 1], nz = mesh.normals[t * 3 + 2];
-    final alpha = (mesh.baseColors[t] >> 24) & 0xff;
-    if (alpha == 255 && (eye.x - p[b]) * nx + (eye.y - p[b + 1]) * ny + (eye.z - p[b + 2]) * nz <= 0) {
-      culled++;
-      continue;
-    }
-    var ok = true;
-    var z = 0.0;
-    for (var k = 0; k < 3; k++) {
-      v.setValues(p[b + k * 3], p[b + k * 3 + 1], p[b + k * 3 + 2], 1);
-      vp.transform(v);
-      if (v.w <= near) {
-        ok = false;
-        break;
+  var base = 0;
+  for (final m in meshes) {
+    final p = m.positions;
+    for (var t = 0; t < m.triangleCount; t++) {
+      final gi = base + t;
+      if (hidden.contains(m.categories[t])) continue;
+      final b = t * 9;
+      final nx = m.normals[t * 3], ny = m.normals[t * 3 + 1], nz = m.normals[t * 3 + 2];
+      var color = m.baseColors[t];
+      final ov = colorOverride?[m.elementIds[t]];
+      if (ov != null && m == mesh) color = ov;
+      final alpha = (color >> 24) & 0xff;
+      if (alpha == 255 && (eye.x - p[b]) * nx + (eye.y - p[b + 1]) * ny + (eye.z - p[b + 2]) * nz <= 0) {
+        culled++;
+        continue;
       }
-      screen[t * 6 + k * 2] = ((v.x / v.w) * 0.5 + 0.5) * size.width;
-      screen[t * 6 + k * 2 + 1] = (1 - ((v.y / v.w) * 0.5 + 0.5)) * size.height;
-      z += v.w;
+      var ok = true;
+      var z = 0.0;
+      for (var k = 0; k < 3; k++) {
+        var x = p[b + k * 3], y = p[b + k * 3 + 1], zz = p[b + k * 3 + 2];
+        if (sway != null && m == mesh && sway.height > 0) {
+          final d = sway.amplitude * (y / sway.height).clamp(0.0, 1.0);
+          if (sway.alongX) {
+            x += d;
+          } else {
+            zz += d;
+          }
+        }
+        v.setValues(x, y, zz, 1);
+        vp.transform(v);
+        if (v.w <= near) {
+          ok = false;
+          break;
+        }
+        screen[gi * 6 + k * 2] = ((v.x / v.w) * 0.5 + 0.5) * size.width;
+        screen[gi * 6 + k * 2 + 1] = (1 - ((v.y / v.w) * 0.5 + 0.5)) * size.height;
+        z += v.w;
+      }
+      if (!ok) {
+        culled++;
+        continue;
+      }
+      final lambert = (nx * light.x + ny * light.y + nz * light.z).abs().clamp(0.0, 1.0);
+      final k = 0.38 + 0.62 * lambert;
+      final r = (((color >> 16) & 0xff) * k).round(), g = (((color >> 8) & 0xff) * k).round(), bl = ((color & 0xff) * k).round();
+      shadedColor[gi] = (alpha << 24) | (r << 16) | (g << 8) | bl;
+      depth[gi] = z;
+      visible.add(gi);
     }
-    if (!ok) {
-      culled++;
-      continue;
-    }
-    depth[t] = z;
-    visible.add(t);
+    base += m.triangleCount;
   }
   visible.sort((a, b) => depth[b].compareTo(depth[a])); // lejos → cerca
   final out = Float32List(visible.length * 6);
@@ -142,18 +208,7 @@ class RenderStats {
   for (var i = 0; i < visible.length; i++) {
     final t = visible[i];
     out.setRange(i * 6, i * 6 + 6, screen, t * 6);
-    final lambert = (mesh.normals[t * 3] * light.x + mesh.normals[t * 3 + 1] * light.y + mesh.normals[t * 3 + 2] * light.z)
-        .abs()
-        .clamp(0.0, 1.0);
-    final k = 0.38 + 0.62 * lambert;
-    final c = mesh.baseColors[t];
-    final a = (c >> 24) & 0xff;
-    final r = (((c >> 16) & 0xff) * k).round(), g = (((c >> 8) & 0xff) * k).round(), bl = ((c & 0xff) * k).round();
-    final shaded = (a << 24) | (r << 16) | (g << 8) | bl;
-    colors[i * 3] = shaded;
-    colors[i * 3 + 1] = shaded;
-    colors[i * 3 + 2] = shaded;
+    colors[i * 3] = colors[i * 3 + 1] = colors[i * 3 + 2] = shadedColor[t];
   }
-  final vertices = Vertices.raw(VertexMode.triangles, out, colors: colors);
-  return (vertices, RenderStats(visible.length, culled, sw.elapsed));
+  return (Vertices.raw(VertexMode.triangles, out, colors: colors), RenderStats(visible.length, culled, sw.elapsed));
 }

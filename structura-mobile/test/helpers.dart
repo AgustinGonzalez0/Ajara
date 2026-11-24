@@ -88,3 +88,21 @@ Uint8List codedPlanPng({int w = 640, int h = 480}) {
   fill(450, 200, 520, 380, 5);
   return img.encodePng(image);
 }
+
+/// Plano realista (muros negros de 12 px sobre blanco, vano, ventana y columna) para el motor clásico.
+Uint8List realisticPlanPng({int w = 640, int h = 480}) {
+  final image = img.Image(width: w, height: h, numChannels: 3)..clear(img.ColorRgb8(255, 255, 255));
+  void fill(int x0, int y0, int x1, int y1, [int v = 0]) =>
+      img.fillRect(image, x1: x0, y1: y0, x2: x1 - 1, y2: y1 - 1, color: img.ColorRgb8(v, v, v));
+  fill(40, 40, w - 40, 52);
+  fill(40, h - 52, w - 40, h - 40);
+  fill(40, 40, 52, h - 40);
+  fill(w - 52, 40, w - 40, h - 40);
+  fill(330, 52, 342, h - 52);
+  fill(330, 120, 342, 190, 255); // vano de puerta
+  fill(120, 40, 220, 52, 255); // ventana
+  fill(120, 42, 220, 43);
+  fill(120, 49, 220, 50);
+  fill(480, 300, 504, 324); // columna aislada
+  return img.encodePng(image);
+}

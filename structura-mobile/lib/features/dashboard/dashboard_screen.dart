@@ -42,6 +42,12 @@ class DashboardScreen extends ConsumerWidget {
                     onTap: () => context.push(Routes.newProject),
                   ),
                   _ActionTile(
+                    icon: Icons.photo_camera_rounded,
+                    title: 'Foto de un plano',
+                    subtitle: 'Una foto → modelo 3D',
+                    onTap: () => context.push('${Routes.newProject}?photo=1'),
+                  ),
+                  _ActionTile(
                     icon: Icons.upload_file_rounded,
                     title: 'Importar plano',
                     subtitle: 'PDF · PNG · JPG · TIFF',

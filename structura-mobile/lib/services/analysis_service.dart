@@ -16,7 +16,9 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:structura_geometry/structura_geometry.dart';
+import 'package:structura_model/structura_model.dart';
 import 'package:structura_pipeline/structura_pipeline.dart';
+import 'package:structura_vision/structura_vision.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/project_models.dart';
@@ -62,7 +64,147 @@ Map<String, Object?> modelSummary(ModelDescriptor d) => {
       'trust_label': d.trustLabel,
     };
 
-/// Lógica común del análisis. Escribe los resultados en `job.outDir`.
+/// Guarda los resultados de un análisis (cualquier motor) en `job.outDir`.
+void writeAnalysisOutputs(AnalysisJob job, SegmentationResult seg, BuildingModel model, BuildingMesh mesh,
+    Map<String, Object?> engine, List<Map<String, Object?>> timings, List<String> warnings, Map<String, int> counts,
+    DateTime started, {Map<String, Object?> extra = const {}}) {
+  final out = job.outDir..createSync(recursive: true);
+  final labels = img.Image.fromBytes(width: seg.width, height: seg.height, bytes: seg.labels.buffer, numChannels: 1);
+  File(p.join(out.path, 'labels.png')).writeAsBytesSync(img.encodePng(labels, level: 3));
+  final c = seg.confidence;
+  if (c != null) {
+    final conf = Uint8List(seg.width * seg.height);
+    for (var i = 0; i < conf.length; i++) {
+      conf[i] = (c[i] * 255).round().clamp(0, 255);
+    }
+    File(p.join(out.path, 'confidence.png')).writeAsBytesSync(
+        img.encodePng(img.Image.fromBytes(width: seg.width, height: seg.height, bytes: conf.buffer, numChannels: 1), level: 3));
+  }
+  File(p.join(out.path, 'building_model.json')).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(model.toJson()));
+  File(p.join(out.path, 'model.glb'))
+      .writeAsBytesSync(const GlbWriter().write(mesh, extras: {'structura_model': engine, 'building_model_id': model.id}));
+  final run = {
+    'run_id': job.runId,
+    'created_at': started.toIso8601String(),
+    'model': engine,
+    'plan': {'id': job.planId, 'width': seg.width, 'height': seg.height, 'sha256': job.rasterSha256},
+    'class_pixels': seg.classHistogram(),
+    'counts': counts,
+    'timings': timings,
+    'warnings': warnings,
+    'display_assumptions': mesh.assumptions.toJson(),
+    ...extra,
+  };
+  File(p.join(out.path, 'run.json')).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(run));
+}
+
+/// Resumen del motor clásico (sin IA) para el registro del análisis.
+const Map<String, Object?> classicEngineSummary = {
+  'id': 'classic_cv',
+  'version': '0.1.0',
+  'engine': 'classic',
+  'training_data': 'none',
+  'production_ready': false,
+  'trust_label': 'Detección clásica sin IA (determinista). Validada solo con planos sintéticos.',
+};
+
+/// Motor clásico: visión por computadora sin IA. Corre en cualquier celular.
+Future<AnalysisRecord> executeClassicAnalysis(AnalysisJob job, {ProgressSink? onProgress, CancellationToken? token}) async {
+  final started = DateTime.now().toUtc();
+  AnalysisRecord record(AnalysisStatus s, {Map<String, int> counts = const {}, List<String> warnings = const [],
+          List<Map<String, Object?>> timings = const [], String? error}) =>
+      AnalysisRecord(
+          id: job.runId,
+          planId: job.planId,
+          createdAt: started,
+          status: s,
+          dir: job.relDir,
+          model: classicEngineSummary,
+          counts: counts,
+          warnings: warnings,
+          timings: timings,
+          error: error);
+  void report(int i, String id, String label, double f, [String? msg]) =>
+      onProgress?.call(ProgressEvent(id, label, i, 3, f, msg));
+  try {
+    final sw = Stopwatch()..start();
+    report(0, 'segment', 'Detección clásica (sin IA)', 0);
+    final raster = decodeRaster(await File(job.rasterPath).readAsBytes());
+    final det = const ClassicDetector().detect(GrayImage.fromRgb(raster.width, raster.height, raster.rgb));
+    final tDetect = sw.elapsedMilliseconds;
+    report(0, 'segment', 'Detección clásica (sin IA)', 1);
+    token?.throwIfCancelled();
+    report(1, 'vectorize', 'Vectorización y Building Model', 0);
+    final build = const BuildingModelBuilder().build(det.segmentation,
+        modelId: job.runId,
+        detectorSource: Source(Provenance.classicDetected, modelId: 'classic_cv', modelVersion: '0.1.0', timestamp: started),
+        imageSha256: job.rasterSha256,
+        dpi: job.dpi);
+    final tVector = sw.elapsedMilliseconds - tDetect;
+    report(1, 'vectorize', 'Vectorización y Building Model', 1);
+    report(2, 'mesh', 'Geometría 3D', 0);
+    final mesh = const MeshBuilder().build(build.model);
+    final tMesh = sw.elapsedMilliseconds - tDetect - tVector;
+    report(2, 'mesh', 'Geometría 3D', 1);
+    final counts = <String, int>{};
+    for (final e in build.model.allElements) {
+      counts[e.kind.name] = (counts[e.kind.name] ?? 0) + 1;
+    }
+    final warnings = [
+      ...det.diagnostics.warnings,
+      ...build.vectorization.warnings,
+      if (build.model.allElements.isEmpty) 'No se detectaron elementos en el plano.',
+    ];
+    final timings = [
+      {'stage': 'segment', 'ms': tDetect},
+      {'stage': 'vectorize', 'ms': tVector},
+      {'stage': 'mesh', 'ms': tMesh},
+    ];
+    writeAnalysisOutputs(job, det.segmentation, build.model, mesh, classicEngineSummary, timings, warnings, counts, started,
+        extra: {'classic_diagnostics': det.diagnostics.toJson()});
+    return record(AnalysisStatus.completed, counts: counts, warnings: warnings, timings: timings);
+  } on CancelledException {
+    return record(AnalysisStatus.cancelled, error: 'Cancelado por el usuario');
+  } on Object catch (e) {
+    return record(AnalysisStatus.failed, error: '$e');
+  }
+}
+
+/// Nivel superior a propósito: el cierre solo captura [job] (un cierre dentro de un
+/// método async capturaría su contexto, con Futures no enviables entre isolates).
+Future<AnalysisRecord> _classicInIsolate(AnalysisJob job) => Isolate.run(() => executeClassicAnalysis(job));
+
+/// Ejecuta el motor clásico en un isolate (la UI no se bloquea). No necesita runtime nativo.
+class ClassicAnalysisRunner implements AnalysisRunner {
+  const ClassicAnalysisRunner();
+  @override
+  AnalysisHandle start(AnalysisJob job, void Function(ProgressEvent) onProgress) {
+    var cancelled = false;
+    Future<AnalysisRecord> run() async {
+      onProgress(const ProgressEvent('segment', 'Detección clásica (sin IA)', 0, 3, null, 'Procesando…'));
+      final rec = await _classicInIsolate(job);
+      if (cancelled && rec.status == AnalysisStatus.completed) {
+        return AnalysisRecord(
+            id: rec.id,
+            planId: rec.planId,
+            createdAt: rec.createdAt,
+            status: AnalysisStatus.cancelled,
+            dir: rec.dir,
+            model: rec.model,
+            error: 'Cancelado por el usuario');
+      }
+      for (var i = 0; i < 3; i++) {
+        onProgress(ProgressEvent(['segment', 'vectorize', 'mesh'][i],
+            ['Detección clásica (sin IA)', 'Vectorización y Building Model', 'Geometría 3D'][i], i, 3, 1));
+      }
+      return rec;
+    }
+
+    return AnalysisHandle(run(), () => cancelled = true);
+  }
+}
+
+/// Lógica común del análisis con IA. Escribe los resultados en `job.outDir`.
 Future<AnalysisRecord> executeAnalysis(
   AnalysisJob job,
   TileInferencer inferencer, {
@@ -95,36 +237,9 @@ Future<AnalysisRecord> executeAnalysis(
       token: token,
       onProgress: onProgress,
     );
-    final out = job.outDir..createSync(recursive: true);
-    final seg = result.segmentation;
-    final labels = img.Image.fromBytes(width: seg.width, height: seg.height, bytes: seg.labels.buffer, numChannels: 1);
-    File(p.join(out.path, 'labels.png')).writeAsBytesSync(img.encodePng(labels, level: 3));
-    final conf = Uint8List(seg.width * seg.height);
-    final c = seg.confidence!;
-    for (var i = 0; i < conf.length; i++) {
-      conf[i] = (c[i] * 255).round().clamp(0, 255);
-    }
-    File(p.join(out.path, 'confidence.png')).writeAsBytesSync(
-        img.encodePng(img.Image.fromBytes(width: seg.width, height: seg.height, bytes: conf.buffer, numChannels: 1), level: 3));
-    File(p.join(out.path, 'building_model.json'))
-        .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result.build.model.toJson()));
-    File(p.join(out.path, 'model.glb')).writeAsBytesSync(const GlbWriter().write(result.mesh, extras: {
-      'structura_model': modelSummary(d),
-      'building_model_id': result.build.model.id,
-    }));
     final timings = result.timings.map((t) => t.toJson()).toList();
-    final run = {
-      'run_id': job.runId,
-      'created_at': started.toIso8601String(),
-      'model': modelSummary(d),
-      'plan': {'id': job.planId, 'width': seg.width, 'height': seg.height, 'sha256': job.rasterSha256},
-      'class_pixels': seg.classHistogram(),
-      'counts': result.elementCounts,
-      'timings': timings,
-      'warnings': result.warnings,
-      'display_assumptions': result.mesh.assumptions.toJson(),
-    };
-    File(p.join(out.path, 'run.json')).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(run));
+    writeAnalysisOutputs(job, result.segmentation, result.build.model, result.mesh, modelSummary(d), timings,
+        result.warnings, result.elementCounts, started);
     return record(AnalysisStatus.completed, counts: result.elementCounts, warnings: result.warnings, timings: timings);
   } on CancelledException {
     return record(AnalysisStatus.cancelled, error: 'Cancelado por el usuario');

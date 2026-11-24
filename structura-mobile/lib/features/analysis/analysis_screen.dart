@@ -28,7 +28,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
     final runnerAvailable = ref.watch(analysisRunnerProvider) != null;
     final t = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Análisis IA')),
+      appBar: AppBar(title: const Text('Análisis del plano')),
       body: SafeArea(
         child: project.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -37,25 +37,40 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 820),
               child: ListView(padding: const EdgeInsets.all(Gap.xl), children: [
-                if (!runnerAvailable)
-                  const NoticeBanner('El análisis se ejecuta con ONNX Runtime nativo y requiere Android. En esta plataforma no está disponible.',
-                      color: StructuraColors.danger, icon: Icons.block_rounded),
-                const SectionLabel('Modelo'),
+                const SectionLabel('Motor de análisis'),
+                _EngineTile(
+                  key: const Key('engine_classic'),
+                  selected: (_modelId ?? 'classic') == 'classic',
+                  icon: Icons.bolt_rounded,
+                  title: 'Clásico — sin IA',
+                  badges: const [('RECOMENDADO', StructuraColors.success), ('CUALQUIER CELULAR', StructuraColors.accent)],
+                  detail: 'Visión por computadora determinista: muros por espesor de trazo, vanos y ventanas por huecos '
+                      'en los muros, columnas. Instantáneo, sin descargas ni conexión. No detecta escaleras.',
+                  onTap: () => setState(() => _modelId = 'classic'),
+                ),
                 models.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => NoticeBanner('No se pudieron cargar los modelos: $e', color: StructuraColors.danger),
-                  data: (list) => list.isEmpty
-                      ? const NoticeBanner('No hay modelos instalados.', color: StructuraColors.danger)
-                      : Column(children: [for (final m in list) _ModelTile(m, selected: (_modelId ?? list.first.descriptor.id) == m.descriptor.id, onTap: () => setState(() => _modelId = m.descriptor.id))]),
+                  data: (list) => Column(children: [
+                    for (final m in list)
+                      _ModelTile(m, selected: _modelId == m.descriptor.id, onTap: () => setState(() => _modelId = m.descriptor.id)),
+                  ]),
                 ),
+                if (_modelId != null && _modelId != 'classic' && !runnerAvailable)
+                  const NoticeBanner('Este dispositivo no puede ejecutar modelos de IA (ONNX Runtime). Usá el motor clásico.',
+                      color: StructuraColors.danger, icon: Icons.block_rounded),
                 const SectionLabel('Ejecución'),
                 _RunPanel(
                   state: state,
-                  canRun: runnerAvailable && p.activePlan != null && models.hasValue && models.value!.isNotEmpty,
+                  canRun: p.activePlan != null && ((_modelId ?? 'classic') == 'classic' || runnerAvailable),
                   onRun: () {
-                    final list = models.value!;
-                    final m = list.firstWhere((m) => m.descriptor.id == (_modelId ?? list.first.descriptor.id));
-                    ref.read(analysisControllerProvider(widget.projectId).notifier).start(m);
+                    final ctrl = ref.read(analysisControllerProvider(widget.projectId).notifier);
+                    final id = _modelId ?? 'classic';
+                    if (id == 'classic') {
+                      ctrl.start();
+                    } else {
+                      ctrl.start(model: models.value!.firstWhere((m) => m.descriptor.id == id));
+                    }
                   },
                   onCancel: () => ref.read(analysisControllerProvider(widget.projectId).notifier).cancel(),
                 ),
@@ -98,6 +113,46 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                 const PendingFeature(title: 'Spatial AI', detail: 'Detección de ambientes y relaciones espaciales.'),
               ]),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EngineTile extends StatelessWidget {
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String detail;
+  final List<(String, Color)> badges;
+  final VoidCallback onTap;
+  const _EngineTile(
+      {super.key, required this.selected, required this.icon, required this.title, required this.detail, required this.badges, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gap.sm),
+      child: Card(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(Gap.lg),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: StructuraColors.accent),
+              const SizedBox(width: Gap.md),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [Icon(icon, size: 18), const SizedBox(width: 6), Flexible(child: Text(title, style: t.textTheme.titleSmall))]),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 6, runSpacing: 6, children: [for (final (l, c) in badges) StatusPill(l, color: c)]),
+                  const SizedBox(height: Gap.sm),
+                  Text(detail, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+                ]),
+              ),
+            ]),
           ),
         ),
       ),
@@ -165,7 +220,7 @@ class _RunPanel extends StatelessWidget {
           for (final (i, (id, label)) in AnalysisPipeline.stages.indexed)
             Padding(
               padding: const EdgeInsets.only(bottom: Gap.md),
-              child: _StageRow(index: i + 1, label: label, event: events[id], active: state.progress?.stageId == id && running),
+              child: _StageRow(index: i + 1, label: events[id]?.stageLabel ?? label, event: events[id], active: state.progress?.stageId == id && running),
             ),
           if (state.message != null && state.phase != AnalysisPhase.running)
             Padding(
