@@ -1,0 +1,24 @@
+# Esquema de clases de Vision AI 0.1 — única fuente de verdad para las herramientas.
+# Los IDs deben ser contiguos desde 0 y el ID 0 debe ser background.
+# Cambiar este archivo invalida los datasets generados previamente.
+version: 1
+classes:
+  - {id: 0, name: background}
+  - {id: 1, name: wall}
+  - {id: 2, name: door}
+  - {id: 3, name: window}
+  - {id: 4, name: column}
+  - {id: 5, name: stairs}
+
+# Resolución de solapamientos (política "priority" del conversor LabelMe).
+# Orden de MENOR a MAYOR prioridad: una clase posterior sobrescribe a las anteriores.
+# Criterio: las aberturas (puerta/ventana) y columnas se dibujan dentro del cuerpo
+# del muro, por lo que deben prevalecer sobre wall. Ver docs/DECISIONES_TECNICAS.md.
+overlap_priority: [wall, stairs, column, window, door]
+
+# Pares cuyo solapamiento es esperable por convención (no se reportan como conflicto).
+expected_overlaps:
+  - [wall, door]
+  - [wall, window]
+  - [wall, column]
+  - [wall, stairs]

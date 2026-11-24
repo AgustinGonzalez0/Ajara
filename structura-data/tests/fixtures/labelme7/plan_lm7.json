@@ -1,0 +1,139 @@
+{
+  "version": "7.11.0",
+  "flags": {
+    "needs_review": false,
+    "partial": true
+  },
+  "shapes": [
+    {
+      "label": "window",
+      "points": [
+        [
+          20.0,
+          10.0
+        ],
+        [
+          40.0,
+          15.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "rectangle",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "wall",
+      "points": [
+        [
+          5.0,
+          10.0
+        ],
+        [
+          109.0,
+          10.0
+        ],
+        [
+          109.0,
+          15.0
+        ],
+        [
+          5.0,
+          15.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "polygon",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "wall",
+      "points": [
+        [
+          60.0,
+          30.0
+        ],
+        [
+          75.0,
+          22.0
+        ],
+        [
+          95.0,
+          60.0
+        ],
+        [
+          80.0,
+          68.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "oriented_rectangle",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "door",
+      "points": [
+        [
+          50.0,
+          10.0
+        ],
+        [
+          58.6,
+          15.4
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "rectangle",
+      "flags": {
+        "ambiguous": true
+      },
+      "mask": null
+    },
+    {
+      "label": "column",
+      "points": [
+        [
+          20.0,
+          50.0
+        ],
+        [
+          24.0,
+          53.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "circle",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "stairs",
+      "points": [
+        [
+          90.0,
+          70.0
+        ],
+        [
+          104.0,
+          81.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAAAAACYKbg4AAAAGUlEQVR4nGNgwA8YoRgC/jMwocnTmk8IAACYqgEQkGEB0QAAAABJRU5ErkJggg=="
+    }
+  ],
+  "imagePath": "plan_lm7.png",
+  "imageData": null,
+  "imageHeight": 90,
+  "imageWidth": 120
+}

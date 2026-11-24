@@ -1,0 +1,1 @@
+Colocá plan_0001.png en images/ y su máscara de IDs en masks/. Repetí para cada split.

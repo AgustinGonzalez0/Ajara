@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+# Artefactos y datos (no versionar datasets ni modelos pesados)
+**/artifacts/
+**/runs/
+*.pt
+*.onnx
+!structura-mobile/assets/models/*.onnx
+**/demo_sintetico/
+# Flutter / Android
+structura-mobile/.dart_tool/
+structura-mobile/build/
+structura-mobile/.flutter-plugins*
+structura-mobile/android/.gradle/
+structura-mobile/android/local.properties
+structura-mobile/android/app/.cxx/
+*.iml
+.idea/

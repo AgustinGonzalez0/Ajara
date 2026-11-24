@@ -1,0 +1,14 @@
+# Configuración de LabelMe para STRUCTURA (usar con: labelme <carpeta> --config config\labelme_config.yaml)
+# - Restringe las etiquetas a las 5 clases (validate_label: exact): evita typos como "Wall " o "pared".
+# - No incrusta la imagen en el JSON (with_image_data: false): JSON livianos; la imagen es work\raw\<id>.png.
+# - Banderas de imagen: needs_review (el plano se excluye del dataset) y partial.
+# - Banderas por forma: ambiguous / partial, para registrar dudas sin inventar etiquetas.
+auto_save: true
+with_image_data: false
+keep_prev: false
+sort_labels: false
+validate_label: exact
+labels: [wall, door, window, column, stairs]
+flags: [needs_review, partial]
+label_flags:
+  ".*": [ambiguous, partial]

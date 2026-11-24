@@ -1,0 +1,2 @@
+source_plan_id,project_id,source_type,image,annotation,units,scale_verified,scale_px_per_unit,dpi,dpi_source,source_file,source_page,source_sha256,image_sha256,width,height,notes
+#ejemplo_plan_p001,proyecto_001,digital,raw/ejemplo_plan_p001.png,,unknown,false,,200,pdf_render,ejemplo.pdf,1,,,,,"Filas que empiezan con # se ignoran. Normalmente este archivo lo genera tools.import_plans."

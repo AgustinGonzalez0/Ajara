@@ -1,0 +1,7 @@
+# STRUCTURA DATASET TOOLS 0.3 — Python 3.11 recomendado (probado también en 3.14)
+opencv-python>=4.10   # decodificación/rasterización/PNG
+numpy>=1.26
+PyMuPDF>=1.24.3       # tools.import_plans: renderizado PDF (módulo `pymupdf`)
+Pillow>=10.0          # tools.import_plans: EXIF, transparencias, 16 bits, DPI de cabecera
+PyYAML>=6.0           # config/classes.yaml
+# Tests: solo biblioteca estándar (unittest). Sin dependencias adicionales.
