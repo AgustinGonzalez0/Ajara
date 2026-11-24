@@ -1,0 +1,9 @@
+name: structura_model
+description: STRUCTURA Building Model — representación estructurada del edificio con procedencia, confianza y datos desconocidos explícitos.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.31.1

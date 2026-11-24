@@ -1,0 +1,5 @@
+* text=auto
+*.png binary
+*.onnx binary
+*.glb binary
+*.pdf binary

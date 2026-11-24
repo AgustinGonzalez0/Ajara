@@ -19,3 +19,8 @@ structura-mobile/android/local.properties
 structura-mobile/android/app/.cxx/
 *.iml
 .idea/
+
+# Datos locales (sintéticos o reales): no versionar
+data/
+packages/*/.dart_tool/
+packages/*/pubspec.lock
