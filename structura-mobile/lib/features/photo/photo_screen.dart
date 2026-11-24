@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:structura_vision/structura_vision.dart';
 
+import '../../app/flows.dart';
 import '../../app/providers.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
@@ -15,16 +16,21 @@ import '../../services/photo_importer.dart';
 import '../../widgets/common.dart';
 
 /// Toma o elige una foto (sobrescribible en tests).
-final photoPickProvider = Provider<Future<File?> Function(bool camera)>((ref) => (camera) async {
-      final x = await ImagePicker().pickImage(source: camera ? ImageSource.camera : ImageSource.gallery, imageQuality: 95);
-      return x == null ? null : File(x.path);
-    });
+final photoPickProvider = Provider<Future<File?> Function(bool camera)>(
+  (ref) => (camera) async {
+    final x = await ImagePicker().pickImage(source: camera ? ImageSource.camera : ImageSource.gallery, imageQuality: 95);
+    return x == null ? null : File(x.path);
+  },
+);
 
 /// Foto de un plano → hoja detectada automáticamente → ajuste de esquinas → importación.
 class PhotoScreen extends ConsumerStatefulWidget {
   final String projectId;
   final bool camera;
-  const PhotoScreen({super.key, required this.projectId, this.camera = true});
+
+  /// Proyecto creado por el flujo rápido: si se cancela sin importar, se descarta.
+  final bool quick;
+  const PhotoScreen({super.key, required this.projectId, this.camera = true, this.quick = false});
   @override
   ConsumerState<PhotoScreen> createState() => _PhotoScreenState();
 }
@@ -36,6 +42,7 @@ class _PhotoScreenState extends ConsumerState<PhotoScreen> {
   List<Pt>? _corners;
   String? _error;
   bool _busy = false;
+  bool _imported = false;
 
   @override
   void initState() {
@@ -94,7 +101,10 @@ class _PhotoScreenState extends ConsumerState<PhotoScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final name = 'Foto del plano ${two(now.day)}-${two(now.month)}-${now.year} ${two(now.hour)}.${two(now.minute)}.jpg';
       await ref.read(photoImporterProvider).import(project, file, photo, quad, originalName: name);
+      _imported = true;
       refreshProject(ref, widget.projectId);
+      // Sin pasos intermedios: el modelo 3D se genera mientras se abre el proyecto.
+      startDefaultAnalysis(ref, widget.projectId);
       if (mounted) context.pushReplacement(Routes.project(widget.projectId));
     } on Object catch (e) {
       setState(() => _error = '$e');
@@ -107,84 +117,123 @@ class _PhotoScreenState extends ConsumerState<PhotoScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final photo = _photo;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Plano desde una foto')),
-      body: SafeArea(
-        child: Column(children: [
-          Expanded(
-            child: photo == null || _preview == null
-                ? Center(
-                    child: _busy
-                        ? const CircularProgressIndicator()
-                        : EmptyState(
-                            icon: Icons.photo_camera_outlined,
-                            title: 'Fotografiá el plano',
-                            message: 'Hoja completa, de frente, con buena luz y sin sombras fuertes. '
-                                'Se corrige la perspectiva automáticamente.',
-                            action: Wrap(spacing: Gap.sm, children: [
-                              FilledButton.icon(
-                                  key: const Key('take_photo'),
-                                  onPressed: () => _pick(true),
-                                  icon: const Icon(Icons.photo_camera_rounded),
-                                  label: const Text('Tomar foto')),
-                              OutlinedButton.icon(
-                                  key: const Key('gallery_photo'),
-                                  onPressed: () => _pick(false),
-                                  icon: const Icon(Icons.photo_library_outlined),
-                                  label: const Text('Galería')),
-                            ]),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && widget.quick && !_imported) ref.read(projectsProvider.notifier).discardIfEmpty(widget.projectId);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(photo == null ? 'Plano desde una foto' : 'Ajustá el recorte')),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: photo == null || _preview == null
+                    ? Center(
+                        child: _busy
+                            ? const CircularProgressIndicator()
+                            : EmptyState(
+                                icon: Icons.photo_camera_outlined,
+                                title: 'Fotografiá el plano',
+                                message:
+                                    'Hoja completa, de frente, con buena luz y sin sombras fuertes. '
+                                    'Se corrige la perspectiva automáticamente.',
+                                action: Wrap(
+                                  spacing: Gap.sm,
+                                  children: [
+                                    FilledButton.icon(
+                                      key: const Key('take_photo'),
+                                      onPressed: () => _pick(true),
+                                      icon: const Icon(Icons.photo_camera_rounded),
+                                      label: const Text('Tomar foto'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      key: const Key('gallery_photo'),
+                                      onPressed: () => _pick(false),
+                                      icon: const Icon(Icons.photo_library_outlined),
+                                      label: const Text('Galería'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(Gap.md),
+                        child: _CornerEditor(
+                          image: _preview!,
+                          corners: _corners!,
+                          onChanged: (c) => setState(() => _corners = c),
+                        ),
+                      ),
+              ),
+              if (photo != null)
+                Container(
+                  decoration: BoxDecoration(
+                    color: t.colorScheme.surfaceContainerLow,
+                    border: Border(top: BorderSide(color: t.colorScheme.outlineVariant)),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            photo.paperDetected ? Icons.check_circle_rounded : Icons.touch_app_rounded,
+                            size: 18,
+                            color: photo.paperDetected ? StructuraColors.success : StructuraColors.warning,
                           ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.all(Gap.md),
-                    child: _CornerEditor(
-                      image: _preview!,
-                      corners: _corners!,
-                      onChanged: (c) => setState(() => _corners = c),
-                    ),
+                          const SizedBox(width: Gap.sm),
+                          Expanded(
+                            child: Text(
+                              photo.paperDetected
+                                  ? 'Hoja detectada. Si hace falta, arrastrá una esquina.'
+                                  : 'Llevá las 4 esquinas a los bordes del plano.',
+                              style: t.textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: Gap.sm),
+                        NoticeBanner(_error!, color: StructuraColors.danger, icon: Icons.error_outline),
+                      ],
+                      const SizedBox(height: Gap.md),
+                      Row(
+                        children: [
+                          IconButton.outlined(
+                            tooltip: 'Otra foto',
+                            onPressed: _busy ? null : () => _pick(widget.camera),
+                            icon: const Icon(Icons.refresh),
+                          ),
+                          const SizedBox(width: Gap.sm),
+                          IconButton.outlined(
+                            tooltip: 'Usar foto completa',
+                            onPressed: () => setState(() => _corners = Quad.full(photo.width, photo.height).points),
+                            icon: const Icon(Icons.crop_free),
+                          ),
+                          const SizedBox(width: Gap.md),
+                          Expanded(
+                            child: FilledButton.icon(
+                              key: const Key('rectify_import'),
+                              onPressed: _busy ? null : _import,
+                              icon: _busy
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.view_in_ar_rounded),
+                              label: Text(_busy ? 'Corrigiendo…' : 'Generar modelo 3D'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
+                ),
+            ],
           ),
-          if (photo != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                NoticeBanner(
-                    photo.paperDetected
-                        ? 'Hoja detectada automáticamente. Arrastrá las esquinas si hace falta ajustar.'
-                        : 'No se detectó la hoja con seguridad. Llevá las 4 esquinas a los bordes del plano.',
-                    color: photo.paperDetected ? StructuraColors.success : StructuraColors.warning,
-                    icon: photo.paperDetected ? Icons.check_circle_outline : Icons.touch_app_outlined),
-                if (_error != null) ...[
-                  const SizedBox(height: Gap.sm),
-                  NoticeBanner(_error!, color: StructuraColors.danger, icon: Icons.error_outline),
-                ],
-                const SizedBox(height: Gap.md),
-                Row(children: [
-                  IconButton.outlined(
-                      tooltip: 'Otra foto', onPressed: _busy ? null : () => _pick(widget.camera), icon: const Icon(Icons.refresh)),
-                  const SizedBox(width: Gap.sm),
-                  IconButton.outlined(
-                      tooltip: 'Usar foto completa',
-                      onPressed: () => setState(() => _corners = Quad.full(photo.width, photo.height).points),
-                      icon: const Icon(Icons.crop_free)),
-                  const SizedBox(width: Gap.md),
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const Key('rectify_import'),
-                      onPressed: _busy ? null : _import,
-                      icon: _busy
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.auto_fix_high_rounded),
-                      label: const Text('Corregir e importar'),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: Gap.xs),
-                Text('${photo.width}×${photo.height} px · procesado en el dispositivo',
-                    textAlign: TextAlign.center, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
-              ]),
-            ),
-        ]),
+        ),
       ),
     );
   }
@@ -204,40 +253,42 @@ class _CornerEditorState extends State<_CornerEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, c) {
-      final iw = widget.image.width.toDouble(), ih = widget.image.height.toDouble();
-      final s = (c.maxWidth / iw).clamp(0.0, c.maxHeight / ih);
-      final dw = iw * s, dh = ih * s;
-      final ox = (c.maxWidth - dw) / 2, oy = (c.maxHeight - dh) / 2;
-      Offset toScreen(Pt p) => Offset(ox + p.x * s, oy + p.y * s);
-      Pt toImage(Offset o) => Pt(((o.dx - ox) / s).clamp(0, iw - 1), ((o.dy - oy) / s).clamp(0, ih - 1));
-      return GestureDetector(
-        onPanStart: (d) {
-          var best = -1;
-          var bestD = 48.0;
-          for (var i = 0; i < 4; i++) {
-            final dist = (toScreen(widget.corners[i]) - d.localPosition).distance;
-            if (dist < bestD) {
-              bestD = dist;
-              best = i;
+    return LayoutBuilder(
+      builder: (context, c) {
+        final iw = widget.image.width.toDouble(), ih = widget.image.height.toDouble();
+        final s = (c.maxWidth / iw).clamp(0.0, c.maxHeight / ih);
+        final dw = iw * s, dh = ih * s;
+        final ox = (c.maxWidth - dw) / 2, oy = (c.maxHeight - dh) / 2;
+        Offset toScreen(Pt p) => Offset(ox + p.x * s, oy + p.y * s);
+        Pt toImage(Offset o) => Pt(((o.dx - ox) / s).clamp(0, iw - 1), ((o.dy - oy) / s).clamp(0, ih - 1));
+        return GestureDetector(
+          onPanStart: (d) {
+            var best = -1;
+            var bestD = 48.0;
+            for (var i = 0; i < 4; i++) {
+              final dist = (toScreen(widget.corners[i]) - d.localPosition).distance;
+              if (dist < bestD) {
+                bestD = dist;
+                best = i;
+              }
             }
-          }
-          _drag = best >= 0 ? best : null;
-        },
-        onPanUpdate: (d) {
-          final i = _drag;
-          if (i == null) return;
-          final next = [...widget.corners];
-          next[i] = toImage(d.localPosition);
-          widget.onChanged(next);
-        },
-        onPanEnd: (_) => _drag = null,
-        child: CustomPaint(
-          size: Size(c.maxWidth, c.maxHeight),
-          painter: _CornerPainter(widget.image, Rect.fromLTWH(ox, oy, dw, dh), widget.corners.map(toScreen).toList(), _drag),
-        ),
-      );
-    });
+            _drag = best >= 0 ? best : null;
+          },
+          onPanUpdate: (d) {
+            final i = _drag;
+            if (i == null) return;
+            final next = [...widget.corners];
+            next[i] = toImage(d.localPosition);
+            widget.onChanged(next);
+          },
+          onPanEnd: (_) => _drag = null,
+          child: CustomPaint(
+            size: Size(c.maxWidth, c.maxHeight),
+            painter: _CornerPainter(widget.image, Rect.fromLTWH(ox, oy, dw, dh), widget.corners.map(toScreen).toList(), _drag),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -250,15 +301,22 @@ class _CornerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawImageRect(image, Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()), dst,
-        Paint()..filterQuality = FilterQuality.medium);
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
     final path = Path()..addPolygon(pts, true);
     // Oscurece lo que queda fuera del recorte.
     canvas.drawPath(Path.combine(PathOperation.difference, Path()..addRect(dst), path), Paint()..color = const Color(0x99000000));
-    canvas.drawPath(path, Paint()
-      ..color = StructuraColors.accent
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = StructuraColors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
     for (var i = 0; i < pts.length; i++) {
       canvas.drawCircle(pts[i], i == active ? 16 : 12, Paint()..color = StructuraColors.accent.withValues(alpha: 0.35));
       canvas.drawCircle(pts[i], 6, Paint()..color = Colors.white);

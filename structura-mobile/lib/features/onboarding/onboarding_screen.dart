@@ -19,22 +19,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   static const _pages = [
     (
-      Icons.upload_file_rounded,
-      'Importá tus planos',
-      'PDF, PNG, JPG o TIFF. Cada plano se convierte a una imagen canónica y se guarda junto al original, '
-          'sin modificarlo.'
-    ),
-    (
-      Icons.auto_awesome_mosaic_rounded,
-      'Análisis local con IA',
-      'Vision AI segmenta muros, puertas, ventanas, columnas y escaleras en tu dispositivo, sin enviar el plano '
-          'a servidores. Cada detección conserva su nivel de confianza.'
+      Icons.photo_camera_rounded,
+      'Una foto del plano',
+      'Fotografiá el plano de frente: la hoja se detecta y la perspectiva se corrige sola. También acepta PDF '
+          'e imágenes.'
     ),
     (
       Icons.view_in_ar_rounded,
-      'Reconstrucción 3D determinista',
-      'El motor geométrico convierte las detecciones en un modelo 3D reproducible. Las medidas reales solo se '
-          'usan si la escala fue verificada; nada se inventa.'
+      'Modelo 3D en segundos',
+      'Muros, puertas, ventanas y columnas se detectan en el teléfono, sin conexión y sin enviar el plano a '
+          'ningún servidor. Nada se inventa: las medidas reales salen de una cota que marcás vos.'
+    ),
+    (
+      Icons.analytics_rounded,
+      'Sismo, tsunami y viento',
+      'Evaluación preliminar con semáforo, simulación 3D e informe PDF para tus clientes. Orienta decisiones; '
+          'no reemplaza el cálculo de un profesional.'
     ),
   ];
 

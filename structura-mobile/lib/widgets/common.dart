@@ -206,3 +206,103 @@ String formatDate(DateTime d) {
   String two(int v) => v.toString().padLeft(2, '0');
   return '${two(l.day)}/${two(l.month)}/${l.year} ${two(l.hour)}:${two(l.minute)}';
 }
+
+/// Barra de acciones fija al pie: la acción principal siempre a la vista, sin scroll.
+class ActionBar extends StatelessWidget {
+  final List<Widget> children;
+  const ActionBar({super.key, required this.children});
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: t.scaffoldBackgroundColor,
+        border: Border(top: BorderSide(color: t.colorScheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.md),
+        child: Row(children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(width: Gap.sm),
+            children[i],
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+/// Panel semitransparente para controles flotantes sobre el visor 3D o una imagen.
+class GlassPanel extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  const GlassPanel({super.key, required this.child, this.padding = const EdgeInsets.all(Gap.sm)});
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: t.colorScheme.surfaceContainer.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.colorScheme.outlineVariant),
+        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 4))],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Acceso rápido en grilla: ícono, título, subtítulo de estado y badge opcional.
+class QuickTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final Color? accent;
+  final bool busy;
+  const QuickTile(
+      {super.key, required this.icon, required this.title, required this.subtitle, this.onTap, this.accent, this.busy = false});
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final enabled = onTap != null;
+    final c = accent ?? StructuraColors.accent;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Material(
+        color: t.colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: t.colorScheme.outlineVariant)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: busy ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(Gap.md),
+            child: Row(children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: c.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)),
+                child: busy
+                    ? Padding(padding: const EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2, color: c))
+                    : Icon(icon, size: 20, color: c),
+              ),
+              const SizedBox(width: Gap.md),
+              Expanded(
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.textTheme.titleSmall),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant, height: 1.2)),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}

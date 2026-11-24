@@ -6,16 +6,19 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:structura_model/structura_model.dart';
 import 'package:structura_pipeline/structura_pipeline.dart';
 
 import '../data/project_models.dart';
 import '../data/project_store.dart';
 import '../platform/native_channels.dart';
 import '../services/analysis_service.dart';
+import '../services/correction_service.dart';
 import '../services/model_registry.dart';
 import '../services/photo_importer.dart';
 import '../services/plan_importer.dart';
 import '../services/report_service.dart';
+import '../services/screening_service.dart';
 import '../services/share_service.dart';
 
 class AppDirs {
@@ -34,6 +37,7 @@ final planImporterProvider =
     Provider<PlanImporter>((ref) => PlanImporter(ref.watch(projectStoreProvider), ref.watch(pdfRasterizerProvider)));
 final modelRegistryProvider =
     Provider<ModelRegistry>((ref) => ModelRegistry(ref.watch(appDirsProvider).models, rootBundle));
+final correctionServiceProvider = Provider<CorrectionService>((ref) => CorrectionService(ref.watch(projectStoreProvider)));
 final fileSharerProvider = Provider<FileSharer>((ref) => const SystemFileSharer());
 final reportServiceProvider =
     Provider<ReportService>((ref) => ReportService(ref.watch(projectStoreProvider), loadFonts: loadBundledReportFonts));
@@ -55,10 +59,38 @@ class ProjectsNotifier extends AsyncNotifier<List<ProjectManifest>> {
     return m;
   }
 
+  /// Flujo rápido "foto → 3D": proyecto sin formulario, con nombre automático editable.
+  Future<ProjectManifest> createQuick({DateTime? now}) {
+    final t = now ?? DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return create('Plano ${two(t.day)}/${two(t.month)} ${two(t.hour)}:${two(t.minute)}', '', BuildingType.unspecified);
+  }
+
+  Future<void> rename(String id, String name) async {
+    final clean = name.trim();
+    if (clean.isEmpty) return;
+    final store = ref.read(projectStoreProvider);
+    final m = await store.load(id);
+    await store.save(m.copyWith(name: clean));
+    await store.appendHistory(id, 'renamed', {'name': clean});
+    ref.invalidateSelf();
+    ref.invalidate(projectProvider(id));
+  }
+
   Future<void> delete(String id) async {
     await ref.read(projectStoreProvider).delete(id);
     ref.invalidateSelf();
     ref.invalidate(projectProvider(id));
+  }
+
+  /// Borra un proyecto rápido que quedó vacío (se canceló la foto o el archivo).
+  Future<void> discardIfEmpty(String id) async {
+    try {
+      final m = await ref.read(projectStoreProvider).load(id);
+      if (m.plans.isEmpty && m.analyses.isEmpty) await delete(id);
+    } on Object {
+      // Si no se puede leer, no se borra nada.
+    }
   }
 }
 
@@ -217,6 +249,21 @@ class AnalysisController extends Notifier<AnalysisState> {
     };
   }
 }
+
+// ---------------------------------------------------------------- Evaluación
+final screeningServiceProvider = Provider<ScreeningService>((ref) => ScreeningService(ref.watch(projectStoreProvider)));
+
+/// Building Model del análisis activo (con la escala, si se calibró).
+final simModelProvider = FutureProvider.autoDispose.family<BuildingModel, String>((ref, id) async {
+  final p = await ref.watch(projectProvider(id).future);
+  return ref.watch(screeningServiceProvider).loadModel(p);
+});
+
+/// Último informe de evaluación guardado (screening.json) o null.
+final lastReportProvider = FutureProvider.autoDispose.family<Map<String, Object?>?, String>((ref, id) async {
+  final p = await ref.watch(projectProvider(id).future);
+  return ref.watch(screeningServiceProvider).lastReport(p);
+});
 
 final photoImporterProvider = Provider<PhotoImporter>((ref) => PhotoImporter(ref.watch(projectStoreProvider)));
 

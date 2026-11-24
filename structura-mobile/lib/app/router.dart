@@ -24,13 +24,22 @@ abstract final class Routes {
   static const settings = '/settings';
   static const newProject = '/projects/new';
   static String project(String id) => '/projects/$id';
-  static String import(String id) => '/projects/$id/import';
+  static String import(String id, {bool auto = false, bool quick = false}) =>
+      '/projects/$id/import${_q({'auto': auto, 'quick': quick})}';
   static String editor(String id) => '/projects/$id/editor';
   static String analysis(String id) => '/projects/$id/analysis';
   static String model3d(String id) => '/projects/$id/model';
-  static String photo(String id, {bool camera = true}) => '/projects/$id/photo?source=${camera ? 'camera' : 'gallery'}';
+  static String photo(String id, {bool camera = true, bool quick = false}) =>
+      '/projects/$id/photo?source=${camera ? 'camera' : 'gallery'}${quick ? '&quick=1' : ''}';
   static String simulate(String id) => '/projects/$id/simulate';
-  static String calibrate(String id) => '/projects/$id/calibrate';
+  static String calibrate(String id, {bool thenSimulate = false}) =>
+      '/projects/$id/calibrate${thenSimulate ? '?next=simulate' : ''}';
+  static String model3dHazard(String id, String hazard) => '/projects/$id/model?hazard=$hazard';
+
+  static String _q(Map<String, bool> flags) {
+    final on = [for (final e in flags.entries) if (e.value) '${e.key}=1'];
+    return on.isEmpty ? '' : '?${on.join('&')}';
+  }
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -51,7 +60,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/projects/:id',
         builder: (_, s) => ProjectScreen(projectId: s.pathParameters['id']!),
         routes: [
-          GoRoute(path: 'import', builder: (_, s) => ImportScreen(projectId: s.pathParameters['id']!)),
+          GoRoute(
+              path: 'import',
+              builder: (_, s) => ImportScreen(
+                  projectId: s.pathParameters['id']!,
+                  autoPick: s.uri.queryParameters['auto'] == '1',
+                  quick: s.uri.queryParameters['quick'] == '1')),
           GoRoute(path: 'editor', builder: (_, s) => EditorScreen(projectId: s.pathParameters['id']!)),
           GoRoute(path: 'analysis', builder: (_, s) => AnalysisScreen(projectId: s.pathParameters['id']!)),
           GoRoute(
@@ -60,9 +74,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: 'photo',
               builder: (_, s) => PhotoScreen(
-                  projectId: s.pathParameters['id']!, camera: s.uri.queryParameters['source'] != 'gallery')),
+                  projectId: s.pathParameters['id']!,
+                  camera: s.uri.queryParameters['source'] != 'gallery',
+                  quick: s.uri.queryParameters['quick'] == '1')),
           GoRoute(path: 'simulate', builder: (_, s) => SimulationScreen(projectId: s.pathParameters['id']!)),
-          GoRoute(path: 'calibrate', builder: (_, s) => CalibrateScreen(projectId: s.pathParameters['id']!)),
+          GoRoute(
+              path: 'calibrate',
+              builder: (_, s) => CalibrateScreen(
+                  projectId: s.pathParameters['id']!, thenSimulate: s.uri.queryParameters['next'] == 'simulate')),
         ],
       ),
     ],

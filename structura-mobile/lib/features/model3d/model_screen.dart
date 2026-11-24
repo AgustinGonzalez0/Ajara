@@ -39,6 +39,9 @@ final model3dProvider = FutureProvider.autoDispose.family<Model3dData, String>((
   return Model3dData(project, model, glb, bytes, report);
 });
 
+const _hazardNames = {'seismic': 'Sismo', 'tsunami': 'Tsunami', 'wind': 'Viento'};
+const _hazardIcons = {'seismic': Icons.vibration_rounded, 'tsunami': Icons.waves_rounded, 'wind': Icons.air_rounded};
+
 class ModelScreen extends ConsumerWidget {
   final String projectId;
   final String? hazard;
@@ -46,13 +49,12 @@ class ModelScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(model3dProvider(projectId));
-    return Scaffold(
-      appBar: AppBar(title: Text(hazard == null ? 'Modelo 3D' : 'Simulación 3D')),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => EmptyState(icon: Icons.view_in_ar_outlined, title: 'Modelo no disponible', message: '$e'),
-        data: (d) => _Viewer(d, hazard, onShareGlb: () => _shareGlb(context, ref, d)),
-      ),
+    return async.when(
+      loading: () => Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(
+          appBar: AppBar(title: const Text('Modelo 3D')),
+          body: EmptyState(icon: Icons.view_in_ar_outlined, title: 'Modelo no disponible', message: '$e')),
+      data: (d) => _Viewer(d, hazard, onShareGlb: () => _shareGlb(context, ref, d)),
     );
   }
 }
@@ -80,6 +82,9 @@ class _HazardView {
   final String overall;
   const _HazardView(this.hazard, this.ratios, this.animation, this.overall);
 
+  static List<String> available(Map<String, Object?>? report) =>
+      report == null ? const [] : [for (final r in (report['results'] as List).cast<Map>()) r['hazard'] as String];
+
   static _HazardView? from(Map<String, Object?>? report, String? hazard) {
     if (report == null || hazard == null) return null;
     for (final r in (report['results'] as List).cast<Map>()) {
@@ -103,11 +108,12 @@ class _Viewer extends StatefulWidget {
 }
 
 class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
-  late final _HazardView? _hz = _HazardView.from(widget.data.report, widget.hazard);
-  late final BuildingMesh _mesh = _buildMesh();
-  late final RenderMesh _render = RenderMesh.fromBuildingMesh(_mesh);
-  late OrbitCamera _cam = _render.frame();
-  late final OrbitCamera _home = _cam.copy();
+  late String? _hazardId = widget.hazard;
+  late _HazardView? _hz = _HazardView.from(widget.data.report, _hazardId);
+  late BuildingMesh _mesh = _buildMesh();
+  late RenderMesh _render = RenderMesh.fromBuildingMesh(_mesh);
+  late OrbitCamera _cam = _framed();
+  late OrbitCamera _home = _cam.copy();
   late final AnimationController _anim = AnimationController(vsync: this, duration: const Duration(seconds: 4));
   final Set<String> _hidden = {};
   double _startDistance = 1;
@@ -131,17 +137,49 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
             windowHead: math.min(2.1, h * 0.85),
             stairSteps: 15,
             rationale: 'Altura total declarada para la evaluación: ${b['floors']} piso(s) × '
-                '${(b['story_height_m'] as num).toStringAsFixed(2)} m = ${h.toStringAsFixed(2)} m. Planta en metros (escala verificada).',
+                '${(b['story_height_m'] as num).toStringAsFixed(2).replaceAll('.', ',')} m = '
+                '${h.toStringAsFixed(2).replaceAll('.', ',')} m. Planta en metros (escala verificada).',
           ));
     }
     return const MeshBuilder().build(model);
+  }
+
+  /// Encuadre con margen: los controles flotantes ocupan parte de la pantalla.
+  OrbitCamera _framed() => _render.frame()..distance *= 1.35;
+
+  @override
+  void didUpdateWidget(_Viewer old) {
+    super.didUpdateWidget(old);
+    // Llegaron datos nuevos (escala calibrada, evaluación guardada): se reconstruye todo.
+    if (old.data != widget.data) _setHazard(_hazardId, reframe: true);
+  }
+
+  void _setHazard(String? id, {bool reframe = false}) {
+    setState(() {
+      _hazardId = id;
+      _hz = _HazardView.from(widget.data.report, id);
+      _mesh = _buildMesh();
+      _render = RenderMesh.fromBuildingMesh(_mesh);
+      final framed = _framed();
+      if (reframe) {
+        _cam = framed.copy();
+      } else {
+        _cam
+          ..distance = framed.distance
+          ..target = framed.target;
+      }
+      _home = framed;
+      final animate = _hz != null && _hz!.hazard != 'wind';
+      _playing = animate;
+      animate ? _anim.repeat() : _anim.stop();
+    });
   }
 
   @override
   void initState() {
     super.initState();
     _anim.addListener(() => setState(() {}));
-    if (_hz != null && _hz.hazard != 'wind') {
+    if (_hz != null && _hz!.hazard != 'wind') {
       _anim.repeat();
       _playing = true;
     }
@@ -166,7 +204,7 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
     c.target = c.target - right * (delta.dx * scale) + forward * (delta.dy * scale) * -1;
   }
 
-  Map<String, int>? get _colors => _hz == null ? null : {for (final e in _hz.ratios.entries) e.key: heatColor(e.value)};
+  Map<String, int>? get _colors => _hz == null ? null : {for (final e in _hz!.ratios.entries) e.key: heatColor(e.value)};
 
   Sway? get _sway {
     final hz = _hz;
@@ -180,7 +218,7 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
   List<RenderMesh> get _overlays {
     final hz = _hz;
     if (hz == null || hz.hazard != 'tsunami') return const [];
-    final depth = (hz.animation['depth_m'] as num).toDouble() * (_mesh.assumptions.units == 'm' ? 1 : 1);
+    final depth = (hz.animation['depth_m'] as num).toDouble();
     final level = depth * (_playing ? Curves.easeInOut.transform((_anim.value * 1.6).clamp(0.0, 1.0)) : 1.0);
     final b = _render.bounds;
     final m = math.max(b.max.x - b.min.x, b.max.z - b.min.z) * 0.15;
@@ -188,11 +226,91 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
     return [RenderMesh.fromParts([water])];
   }
 
+  // ------------------------------------------------------------------ hojas
+
+  void _showLayers() => showModalBottomSheet(
+        context: context,
+        showDragHandle: true,
+        builder: (c) => StatefulBuilder(
+          builder: (c, setSheet) => ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xl), children: [
+            Text('Capas', style: Theme.of(c).textTheme.titleMedium),
+            ..._layerTiles(() {
+              setSheet(() {});
+              setState(() {});
+            }),
+          ]),
+        ),
+      );
+
+  List<Widget> _layerTiles(VoidCallback changed) => [
+        for (final cat in ['wall', 'door', 'window', 'column', 'stairs', 'floor'])
+          if (_mesh.parts.containsKey(cat))
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: !_hidden.contains(cat),
+              onChanged: (v) {
+                v == true ? _hidden.remove(cat) : _hidden.add(cat);
+                changed();
+              },
+              title: Text(StructuraColors.classLabels[cat] ?? (cat == 'floor' ? 'Piso (visualización)' : cat)),
+              secondary: Container(width: 12, height: 12, color: StructuraColors.byClass[cat] ?? StructuraColors.textMuted),
+            ),
+      ];
+
+  void _showInfo() => showModalBottomSheet(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (c) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.55,
+          builder: (c, scroll) => ListView(controller: scroll, padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xl), children: _info(c)),
+        ),
+      );
+
+  List<Widget> _info(BuildContext context) {
+    final d = widget.data;
+    final a = _mesh.assumptions;
+    final t = Theme.of(context);
+    return [
+      NoticeBanner(a.rationale, icon: Icons.straighten_rounded, color: StructuraColors.accent),
+      if (d.project.activeAnalysis?.isTestModel == true && d.project.activeAnalysis?.model['engine'] != 'classic') ...[
+        const SizedBox(height: Gap.sm),
+        NoticeBanner('Geometría detectada sin validación con planos reales: ${d.project.activeAnalysis!.model['trust_label']}',
+            icon: Icons.science_outlined),
+      ],
+      const SectionLabel('Datos'),
+      _kv(context, 'Triángulos', '${_mesh.triangleCount}'),
+      _kv(context, 'Elementos', '${d.model.allElements.length}'),
+      _kv(context, 'Unidades', a.units == 'm' ? 'metros (escala verificada)' : 'píxeles del plano'),
+      _kv(context, 'GLB', d.glbBytes > 0 ? formatBytes(d.glbBytes) : 'no generado'),
+      if (_stats != null) _kv(context, 'Frame', '${_stats!.drawn} tri · ${(_stats!.time.inMicroseconds / 1000).toStringAsFixed(1)} ms'),
+      const SizedBox(height: Gap.sm),
+      Text('El GLB se abre en visores glTF, Blender o navegadores. Archivo en el proyecto:\n${d.glb.path}',
+          style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+    ];
+  }
+
+  Widget _kv(BuildContext context, String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(children: [
+          Expanded(child: Text(k, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          Text(v, style: const TextStyle(fontFeatures: tabular)),
+        ]),
+      );
+
+  // ------------------------------------------------------------------ build
+
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context);
     final d = widget.data;
     final a = _mesh.assumptions;
     final wide = MediaQuery.sizeOf(context).width >= 900;
+    final hazards = _HazardView.available(d.report);
+    final hz = _hz;
+
     final viewport = LayoutBuilder(builder: (context, c) {
       final size = c.biggest;
       return Listener(
@@ -219,98 +337,151 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
       );
     });
 
-    final controls = ListView(padding: const EdgeInsets.all(Gap.lg), children: [
-      if (_hz != null) ...[
-        const NoticeBanner('Evaluación preliminar: colores = relación demanda/capacidad estimada por muro. '
-            'No reemplaza el cálculo de un profesional habilitado.', icon: Icons.gpp_maybe_outlined),
-        const SizedBox(height: Gap.sm),
-        const _HeatLegend(),
-        const SizedBox(height: Gap.sm),
-        if (_hz.hazard == 'seismic')
-          const Text('Animación: deformación lateral EXAGERADA solo para visualizar el modo de vibración.',
-              style: TextStyle(fontSize: 12, color: StructuraColors.textMuted)),
-        if (_hz.hazard == 'tsunami')
-          Text('Agua hasta ${(_hz.animation['depth_m'] as num).toStringAsFixed(2)} m '
-              '(${(_hz.animation['velocity_ms'] as num).toStringAsFixed(1)} m/s).',
-              style: const TextStyle(fontSize: 12, color: StructuraColors.textMuted)),
-        const SizedBox(height: Gap.sm),
-        if (_hz.hazard != 'wind')
-          OutlinedButton.icon(
-            onPressed: () => setState(() {
+    final hazardBar = hazards.isEmpty
+        ? null
+        : GlassPanel(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                _modeChip('Modelo', Icons.view_in_ar_rounded, null),
+                for (final h in hazards) _modeChip(_hazardNames[h] ?? h, _hazardIcons[h] ?? Icons.warning_amber, h),
+              ]),
+            ),
+          );
+
+    final legend = hz == null
+        ? null
+        : GlassPanel(
+            padding: const EdgeInsets.fromLTRB(Gap.md, Gap.sm, Gap.md, Gap.sm),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const _HeatLegend(),
+              const SizedBox(height: 6),
+              Text(
+                hz.hazard == 'seismic'
+                    ? 'Deformación EXAGERADA para ver el modo de vibración. Colores: demanda/capacidad por muro.'
+                    : hz.hazard == 'tsunami'
+                        ? 'Agua hasta ${(hz.animation['depth_m'] as num).toStringAsFixed(2).replaceAll('.', ',')} m '
+                            '(${(hz.animation['velocity_ms'] as num).toStringAsFixed(1).replaceAll('.', ',')} m/s). Colores: demanda/capacidad por muro.'
+                        : 'Colores: demanda/capacidad por muro ante la presión de viento.',
+                style: t.textTheme.bodySmall,
+              ),
+              Text(a.rationale, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+            ]),
+          );
+
+    final toolbar = GlassPanel(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(children: [
+        _tool(Icons.threed_rotation_rounded, 'Perspectiva', _reset, key: const Key('view_persp')),
+        _tool(Icons.crop_square_rounded, 'Planta', _top, key: const Key('view_top')),
+        _tool(Icons.layers_outlined, 'Capas', _showLayers, key: const Key('view_layers')),
+        if (hz != null && hz.hazard != 'wind')
+          _tool(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded, _playing ? 'Pausar' : 'Animar', () {
+            setState(() {
               _playing = !_playing;
               _playing ? _anim.repeat() : _anim.stop();
-            }),
-            icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-            label: Text(_playing ? 'Pausar animación' : 'Reproducir animación'),
-          ),
-        const SizedBox(height: Gap.sm),
-      ],
-      NoticeBanner(a.rationale, icon: Icons.straighten_rounded, color: StructuraColors.accent),
-      if (d.project.activeAnalysis?.isTestModel == true) ...[
-        const SizedBox(height: Gap.sm),
-        NoticeBanner('Geometría detectada sin validación con planos reales: ${d.project.activeAnalysis!.model['trust_label']}',
-            icon: Icons.science_outlined),
-      ],
-      const SectionLabel('Capas'),
-      for (final cat in ['wall', 'door', 'window', 'column', 'stairs', 'floor'])
-        if (_mesh.parts.containsKey(cat))
-          CheckboxListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            value: !_hidden.contains(cat),
-            onChanged: (v) => setState(() => v == true ? _hidden.remove(cat) : _hidden.add(cat)),
-            title: Text(StructuraColors.classLabels[cat] ?? (cat == 'floor' ? 'Piso (visualización)' : cat)),
-            secondary: Container(width: 12, height: 12, color: StructuraColors.byClass[cat] ?? StructuraColors.textMuted),
-          ),
-      const SectionLabel('Vista'),
-      Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-        OutlinedButton.icon(onPressed: _reset, icon: const Icon(Icons.threed_rotation_rounded), label: const Text('Perspectiva')),
-        OutlinedButton.icon(onPressed: _top, icon: const Icon(Icons.crop_square_rounded), label: const Text('Planta')),
+            });
+          }, key: const Key('view_play')),
+        _tool(Icons.info_outline_rounded, 'Info', _showInfo, key: const Key('view_info')),
       ]),
-      const SectionLabel('Datos'),
-      _kv(context, 'Triángulos', '${_mesh.triangleCount}'),
-      _kv(context, 'Elementos', '${d.model.allElements.length}'),
-      _kv(context, 'Unidades', a.units == 'm' ? 'metros (escala verificada)' : 'píxeles del plano'),
-      _kv(context, 'GLB', d.glbBytes > 0 ? formatBytes(d.glbBytes) : 'no generado'),
-      if (_stats != null) _kv(context, 'Frame', '${_stats!.drawn} tri · ${(_stats!.time.inMicroseconds / 1000).toStringAsFixed(1)} ms'),
-      const SizedBox(height: Gap.sm),
-      FilledButton.tonalIcon(
-        key: const Key('share_glb'),
-        onPressed: d.glbBytes > 0 ? widget.onShareGlb : null,
-        icon: const Icon(Icons.ios_share_rounded),
-        label: const Text('Compartir modelo 3D (GLB)'),
-      ),
-      const SizedBox(height: Gap.xs),
-      Text('Se abre en visores glTF, Blender o navegadores. Archivo en el proyecto:\n${d.glb.path}',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-      const SizedBox(height: Gap.md),
-      const PendingFeature(title: 'Edición 3D', detail: 'Mover, agregar o eliminar elementos desde el visor.'),
-    ]);
+    );
+
+    final status = StatusPill(
+        hz != null ? 'SIMULACIÓN PRELIMINAR' : (a.units == 'm' ? 'ALTURAS DE VISUALIZACIÓN' : 'UNIDADES: PX · ALTURA SUPUESTA'),
+        color: StructuraColors.warning,
+        icon: Icons.info_outline);
 
     final view = Container(
-      color: Theme.of(context).brightness == Brightness.dark ? StructuraColors.ink : const Color(0xFFEFF2F6),
+      color: t.brightness == Brightness.dark ? StructuraColors.ink : const Color(0xFFEFF2F6),
       child: Stack(children: [
         Positioned.fill(child: viewport),
         Positioned(
           left: Gap.md,
-          top: Gap.md,
-          child: StatusPill(
-              _hz != null ? 'SIMULACIÓN PRELIMINAR' : (a.units == 'm' ? 'ALTURAS DE VISUALIZACIÓN' : 'UNIDADES: PX · ALTURA SUPUESTA'),
-              color: StructuraColors.warning,
-              icon: Icons.info_outline),
+          right: Gap.md,
+          top: Gap.sm,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ?hazardBar,
+            const SizedBox(height: Gap.sm),
+            status,
+          ]),
         ),
+        if (!wide)
+          Positioned(
+            left: Gap.md,
+            right: Gap.md,
+            bottom: Gap.md,
+            child: SafeArea(
+              top: false,
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (legend != null) ...[legend, const SizedBox(height: Gap.sm)],
+                toolbar,
+              ]),
+            ),
+          ),
       ]),
     );
-    if (wide) return Row(children: [Expanded(child: view), SizedBox(width: 340, child: controls)]);
-    return Column(children: [Expanded(flex: 3, child: view), const Divider(), Expanded(flex: 2, child: controls)]);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(hz == null ? 'Modelo 3D' : 'Simulación 3D'),
+        actions: [
+          IconButton(
+            key: const Key('share_glb'),
+            tooltip: 'Compartir modelo 3D (GLB)',
+            onPressed: d.glbBytes > 0 ? widget.onShareGlb : null,
+            icon: const Icon(Icons.ios_share_rounded),
+          ),
+        ],
+      ),
+      body: wide
+          ? Row(children: [
+              Expanded(child: view),
+              SizedBox(
+                width: 340,
+                child: ListView(padding: const EdgeInsets.all(Gap.lg), children: [
+                  if (legend != null) ...[legend, const SizedBox(height: Gap.md)],
+                  toolbar,
+                  const SectionLabel('Capas'),
+                  ..._layerTiles(() => setState(() {})),
+                  ..._info(context),
+                ]),
+              ),
+            ])
+          : view,
+    );
   }
 
-  Widget _kv(BuildContext context, String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(children: [
-          Expanded(child: Text(k, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
-          Text(v, style: const TextStyle(fontFeatures: tabular)),
-        ]),
+  Widget _modeChip(String label, IconData icon, String? id) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: ChoiceChip(
+          key: Key('mode_${id ?? 'model'}'),
+          avatar: Icon(icon, size: 16),
+          label: Text(label),
+          selected: _hazardId == id,
+          visualDensity: VisualDensity.compact,
+          onSelected: (_) => _setHazard(id),
+        ),
+      );
+
+  Widget _tool(IconData icon, String label, VoidCallback onTap, {Key? key}) => Expanded(
+        child: InkWell(
+          key: key,
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 22),
+              const SizedBox(height: 2),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 0.2)),
+            ]),
+          ),
+        ),
       );
 }
 
@@ -319,13 +490,13 @@ class _HeatLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
-          height: 10,
+          height: 8,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: BorderRadius.circular(4),
             gradient: LinearGradient(colors: [for (final r in [0.0, 0.35, 0.7, 0.85, 1.0]) Color(heatColor(r))]),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         const Row(children: [
           Expanded(child: Text('0 · bajo', style: TextStyle(fontSize: 11))),
           Expanded(child: Text('0,7 · revisar', textAlign: TextAlign.center, style: TextStyle(fontSize: 11))),
@@ -372,5 +543,6 @@ class _MeshPainter extends CustomPainter {
       o._tz != _tz ||
       o._hiddenHash != _hiddenHash ||
       o.mesh != mesh ||
+      o.colors != colors ||
       o.tick != tick;
 }

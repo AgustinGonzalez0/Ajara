@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../app/flows.dart';
 import '../../app/providers.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
@@ -36,7 +37,13 @@ final filePickProvider = Provider<Future<PickedFile?> Function()>((ref) => () as
 
 class ImportScreen extends ConsumerStatefulWidget {
   final String projectId;
-  const ImportScreen({super.key, required this.projectId});
+
+  /// Abre el selector de archivos al entrar (un toque menos).
+  final bool autoPick;
+
+  /// Proyecto creado por el flujo rápido: si se cancela sin importar, se descarta.
+  final bool quick;
+  const ImportScreen({super.key, required this.projectId, this.autoPick = false, this.quick = false});
   @override
   ConsumerState<ImportScreen> createState() => _ImportScreenState();
 }
@@ -50,6 +57,13 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   late double _dpi = ref.read(settingsProvider).pdfDpi;
   final Map<int, File> _thumbs = {};
   bool _busy = false;
+  bool _imported = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoPick) WidgetsBinding.instance.addPostFrameCallback((_) => _pick());
+  }
 
   Future<void> _pick() async {
     setState(() {
@@ -74,6 +88,12 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         _page = 1;
       });
       if (type == 'pdf') _loadThumbs();
+      // Imagen o PDF de una sola página: no hay nada que elegir, se importa directo.
+      if (type != 'pdf' || pages == 1) {
+        _busy = false;
+        await _import();
+        return;
+      }
     } on ImportException catch (e) {
       setState(() => _error = e.message);
     } on Object catch (e) {
@@ -110,7 +130,9 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       final project = await store.load(widget.projectId);
       await ref.read(planImporterProvider).import(project, picked.file,
           originalName: picked.name, page: _type == 'pdf' ? _page : null, dpi: _dpi);
+      _imported = true;
       refreshProject(ref, widget.projectId);
+      startDefaultAnalysis(ref, widget.projectId);
       if (mounted) context.pushReplacement(Routes.project(widget.projectId));
     } on ImportException catch (e) {
       setState(() => _error = e.message);
@@ -125,32 +147,17 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final picked = _picked;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Importar plano')),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && widget.quick && !_imported) ref.read(projectsProvider.notifier).discardIfEmpty(widget.projectId);
+      },
+      child: Scaffold(
+      appBar: AppBar(title: const Text('Plano desde archivo')),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820),
             child: ListView(padding: const EdgeInsets.all(Gap.xl), children: [
-              Row(children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    key: const Key('photo_camera'),
-                    onPressed: () => context.push(Routes.photo(widget.projectId)),
-                    icon: const Icon(Icons.photo_camera_rounded),
-                    label: const Text('Tomar foto'),
-                  ),
-                ),
-                const SizedBox(width: Gap.md),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => context.push(Routes.photo(widget.projectId, camera: false)),
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Foto de galería'),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: Gap.md),
               _DropZone(onTap: _busy ? null : _pick, picked: picked, type: _type),
               if (_error != null) ...[
                 const SizedBox(height: Gap.md),
@@ -225,18 +232,24 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: Gap.xl),
-              FilledButton.icon(
-                key: const Key('do_import'),
-                onPressed: picked == null || _busy ? null : _import,
-                icon: _busy
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.check_rounded),
-                label: Text(_busy ? 'Procesando…' : 'Importar al proyecto'),
-              ),
             ]),
           ),
         ),
+      ),
+      bottomNavigationBar: picked == null && !_busy
+          ? null
+          : ActionBar(children: [
+              Expanded(
+                child: FilledButton.icon(
+                  key: const Key('do_import'),
+                  onPressed: picked == null || _busy ? null : _import,
+                  icon: _busy
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.view_in_ar_rounded),
+                  label: Text(_busy ? 'Procesando…' : (_type == 'pdf' ? 'Usar página $_page y generar 3D' : 'Generar modelo 3D')),
+                ),
+              ),
+            ]),
       ),
     );
   }

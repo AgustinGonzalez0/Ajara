@@ -45,8 +45,6 @@ class _NewProjectScreenState extends ConsumerState<NewProjectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final importFirst = GoRouterState.of(context).uri.queryParameters['import'] == '1';
-    final photoFirst = GoRouterState.of(context).uri.queryParameters['photo'] == '1';
     final t = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Nuevo proyecto')),
@@ -83,33 +81,31 @@ class _NewProjectScreenState extends ConsumerState<NewProjectScreen> {
                 const SizedBox(height: Gap.sm),
                 Text('El tipo se usa para organizar proyectos. No modifica el análisis.',
                     style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
-                const SizedBox(height: Gap.xxl),
-                FilledButton.icon(
-                  key: const Key('create_and_photo'),
-                  onPressed: _saving ? null : () => _create(thenImport: false, photo: true),
-                  icon: const Icon(Icons.photo_camera_rounded),
-                  label: const Text('Crear y fotografiar plano'),
-                ),
-                const SizedBox(height: Gap.md),
-                if (!photoFirst) FilledButton.tonalIcon(
-                  key: const Key('create_and_import'),
-                  onPressed: _saving ? null : () => _create(thenImport: true),
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: const Text('Crear e importar plano'),
-                ),
-                const SizedBox(height: Gap.md),
-                if (!importFirst)
-                  OutlinedButton(
+                const SizedBox(height: Gap.lg),
+                Center(
+                  child: TextButton(
                     key: const Key('create_only'),
                     onPressed: _saving ? null : () => _create(thenImport: false),
-                    child: const Text('Crear sin plano'),
+                    child: const Text('Crear sin plano por ahora'),
                   ),
-                if (_saving) const Padding(padding: EdgeInsets.only(top: Gap.lg), child: LinearProgressIndicator(color: StructuraColors.accent)),
+                ),
               ]),
             ),
           ),
         ),
       ),
+      bottomNavigationBar: ActionBar(children: [
+        Expanded(
+          child: FilledButton.icon(
+            key: const Key('create_and_photo'),
+            onPressed: _saving ? null : () => _create(thenImport: false, photo: true),
+            icon: _saving
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.photo_camera_rounded),
+            label: const Text('Crear y fotografiar plano'),
+          ),
+        ),
+      ]),
     );
   }
 }

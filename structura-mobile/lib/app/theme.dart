@@ -33,6 +33,18 @@ abstract final class StructuraColors {
     'stairs': stairs,
   };
 
+  static const classSingular = <String, String>{
+    'wall': 'muro',
+    'door': 'puerta',
+    'window': 'ventana',
+    'column': 'columna',
+    'stairs': 'escalera',
+  };
+
+  /// "1 puerta", "3 puertas".
+  static String count(String kind, int n) =>
+      '$n ${n == 1 ? (classSingular[kind] ?? kind) : (classLabels[kind] ?? kind).toLowerCase()}';
+
   static const classLabels = <String, String>{
     'wall': 'Muros',
     'door': 'Puertas',
