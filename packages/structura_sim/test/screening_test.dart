@@ -110,7 +110,7 @@ void main() {
     // Flexión ∝ 1/t²: de 0,20 a 0,30 m la relación baja a (0,2/0,3)² ≈ 0,44.
     expect(ind(declared, 'facade_out_of_plane').value / ind(detected, 'facade_out_of_plane').value, closeTo(4 / 9, 1e-9));
     expect(declared.assumptions.first, contains('declarado por el profesional'));
-    expect(detected.assumptions.first, contains('20.0 cm'));
+    expect(detected.assumptions.first, contains('20,0 cm'));
     expect(() => runScreening(box(), const BuildingInput(wallThicknessM: 5)), throwsA(isA<SimulationException>()));
   });
 }

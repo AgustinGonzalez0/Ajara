@@ -12,6 +12,7 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import '../../app/providers.dart';
 import '../../app/theme.dart';
 import '../../data/project_models.dart';
+import '../../services/share_service.dart';
 import '../../widgets/common.dart';
 import 'software_renderer.dart';
 
@@ -50,9 +51,24 @@ class ModelScreen extends ConsumerWidget {
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => EmptyState(icon: Icons.view_in_ar_outlined, title: 'Modelo no disponible', message: '$e'),
-        data: (d) => _Viewer(d, hazard),
+        data: (d) => _Viewer(d, hazard, onShareGlb: () => _shareGlb(context, ref, d)),
       ),
     );
+  }
+}
+
+Future<void> _shareGlb(BuildContext context, WidgetRef ref, Model3dData d) async {
+  try {
+    await ref.read(fileSharerProvider).shareFile(d.glb.path,
+        mimeType: mimeGlb,
+        subject: 'Modelo 3D — ${d.project.name}',
+        text: 'Modelo 3D (glTF binario) generado con STRUCTURA AI a partir del plano. '
+            'Las alturas son supuestos de visualización salvo que se indique lo contrario.');
+    await ref.read(projectStoreProvider).appendHistory(d.project.id, 'glb_shared', {'bytes': d.glbBytes});
+  } on Object catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo compartir el modelo: $e')));
+    }
   }
 }
 
@@ -80,7 +96,8 @@ class _HazardView {
 class _Viewer extends StatefulWidget {
   final Model3dData data;
   final String? hazard;
-  const _Viewer(this.data, this.hazard);
+  final VoidCallback onShareGlb;
+  const _Viewer(this.data, this.hazard, {required this.onShareGlb});
   @override
   State<_Viewer> createState() => _ViewerState();
 }
@@ -257,7 +274,14 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
       _kv(context, 'GLB', d.glbBytes > 0 ? formatBytes(d.glbBytes) : 'no generado'),
       if (_stats != null) _kv(context, 'Frame', '${_stats!.drawn} tri · ${(_stats!.time.inMicroseconds / 1000).toStringAsFixed(1)} ms'),
       const SizedBox(height: Gap.sm),
-      Text('Archivo GLB guardado en el proyecto:\n${d.glb.path}',
+      FilledButton.tonalIcon(
+        key: const Key('share_glb'),
+        onPressed: d.glbBytes > 0 ? widget.onShareGlb : null,
+        icon: const Icon(Icons.ios_share_rounded),
+        label: const Text('Compartir modelo 3D (GLB)'),
+      ),
+      const SizedBox(height: Gap.xs),
+      Text('Se abre en visores glTF, Blender o navegadores. Archivo en el proyecto:\n${d.glb.path}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       const SizedBox(height: Gap.md),
       const PendingFeature(title: 'Edición 3D', detail: 'Mover, agregar o eliminar elementos desde el visor.'),

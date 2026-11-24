@@ -3,6 +3,10 @@
 Especificación 0.1: CrossEntropy, AdamW lr=1e-3, 40 épocas, batch 4, AMP FP16 en CUDA.
 El mejor checkpoint se elige por mIoU de validación (no por loss).
 
+Opciones EXPERIMENTALES (por defecto apagadas: la especificación 0.1 no cambia):
+  --class-weights enet   CE ponderada w = 1/ln(1.02 + f) (propuesta B, D-18 PENDIENTE).
+  --photometric-aug      aumentos de contraste, ruido, desenfoque y JPEG en train.
+
 Uso (Windows):
     python -m core.train --dataset C:\\STRUCTURA\\data\\dataset --output .\\runs\\vision_ai_0_1
 """
@@ -19,7 +23,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from .data import CLASS_NAMES, NUM_CLASSES, PlanDataset, worker_init_fn
+from .data import CLASS_NAMES, NUM_CLASSES, PlanDataset, class_pixel_frequencies, enet_class_weights, worker_init_fn
 from .io_utils import set_seed
 from .metrics import SegmentationMetrics
 from .model import UNetSmall
@@ -58,7 +62,7 @@ def train(args: argparse.Namespace) -> dict:
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
 
-    train_ds = PlanDataset(args.dataset, "train", augment=True)
+    train_ds = PlanDataset(args.dataset, "train", augment=True, photometric_aug=args.photometric_aug)
     val_ds = PlanDataset(args.dataset, "validation", augment=False)
     gen = torch.Generator().manual_seed(args.seed)
     train_dl = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, generator=gen,
@@ -69,13 +73,20 @@ def train(args: argparse.Namespace) -> dict:
 
     model = UNetSmall(NUM_CLASSES, args.base).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    criterion = nn.CrossEntropyLoss()
+    freqs = class_pixel_frequencies(args.dataset, "train")
+    weights = None
+    loss_name = "CrossEntropyLoss (sin pesos)"
+    if args.class_weights == "enet":
+        weights = enet_class_weights(freqs)
+        loss_name = "CrossEntropyLoss ponderada ENet w=1/ln(1.02+f) [EXPERIMENTAL, D-18]"
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device) if weights else None)
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
     config = {k: v for k, v in vars(args).items()}
     config.update(device=str(device), amp=amp, torch=str(torch.__version__), cuda=str(torch.version.cuda),
                   gpu=torch.cuda.get_device_name(0) if device.type == "cuda" else None,
                   python=platform.python_version(), train_tiles=len(train_ds), val_tiles=len(val_ds),
-                  class_names=CLASS_NAMES, loss="CrossEntropyLoss (sin pesos)")
+                  class_names=CLASS_NAMES, loss=loss_name, class_weights=weights,
+                  train_class_frequencies=[round(f, 8) for f in freqs])
     (out / "config.json").write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
 
     fields = ["epoch", "train_loss", "val_loss", "val_miou", "val_miou_fg", "val_pixel_acc",
@@ -146,6 +157,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--deterministic", action="store_true", help="cuDNN determinista (más lento)")
     ap.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
     ap.add_argument("--no-amp", action="store_true")
+    ap.add_argument("--class-weights", choices=["none", "enet"], default="none",
+                    help="none = especificación 0.1; enet = experimento de CE ponderada (D-18 pendiente)")
+    ap.add_argument("--photometric-aug", action="store_true", help="Aumentos fotométricos en train (experimental)")
     return ap
 
 

@@ -36,7 +36,7 @@ DEFAULT_CLASSES_PATH = PACKAGE_ROOT / "config" / "classes.yaml"
 # Identificadores seguros para nombres de archivo en Windows (sin espacios,
 # sin caracteres reservados, sin acentos) y razonablemente cortos.
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
-SOURCE_TYPES = ("digital", "scanned", "photo", "unknown")
+SOURCE_TYPES = ("digital", "scanned", "photo", "rendered", "unknown")  # rendered: dibujado desde geometría vectorial
 UNITS = ("mm", "cm", "m", "in", "ft", "unknown")
 UNIT_ALIASES = {
     "meters": "m", "meter": "m", "metros": "m", "metro": "m",

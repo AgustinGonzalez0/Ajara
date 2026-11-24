@@ -144,3 +144,45 @@ class TestQuantization(TempDirCase):
         self.assertEqual(meta["training"]["data"], "untrained")  # hereda la procedencia
         saved = json.loads((self.root / "m_int8.model.json").read_text(encoding="utf-8"))
         self.assertTrue(saved["id"].endswith("_int8"))
+
+
+class TestExperimentalOptions(TempDirCase):
+    """Opciones del experimento D-18: por defecto la especificación 0.1 queda intacta."""
+
+    def test_defaults_keep_spec(self):
+        a = train_mod.build_parser().parse_args(["--dataset", "x"])
+        self.assertEqual((a.class_weights, a.photometric_aug), ("none", False))
+
+    def test_enet_weights_from_split_frequencies(self):
+        from core.data import class_pixel_frequencies, enet_class_weights
+
+        ds = make_tile_dataset(self.root / "ds")
+        f = class_pixel_frequencies(ds, "train")
+        self.assertAlmostEqual(sum(f), 1.0, places=6)
+        self.assertGreater(f[0], f[1])
+        w = enet_class_weights(f)
+        self.assertLess(w[0], w[1])  # la clase más frecuente pesa menos
+        self.assertAlmostEqual(w[0], 1 / np.log(1.02 + f[0]), places=9)
+        self.assertAlmostEqual(enet_class_weights([0.0])[0], 1 / np.log(1.02), places=9)
+
+    def test_weighted_training_records_loss_in_config(self):
+        ds = make_tile_dataset(self.root / "ds")
+        out = self.root / "run_w"
+        args = train_mod.build_parser().parse_args(
+            ["--dataset", str(ds), "--output", str(out), "--epochs", "1", "--batch-size", "2", "--device", "cpu",
+             "--class-weights", "enet", "--photometric-aug"])
+        train_mod.train(args)
+        cfg = json.loads((out / "config.json").read_text(encoding="utf-8"))
+        self.assertIn("ENet", cfg["loss"])
+        self.assertEqual(len(cfg["class_weights"]), 6)
+        self.assertTrue(cfg["photometric_aug"])
+
+    def test_photometric_keeps_shape_and_mask(self):
+        from core.data import photometric
+
+        ds = PlanDataset(make_tile_dataset(self.root / "ds"), "train", augment=True, photometric_aug=True)
+        x, y = ds[0]
+        self.assertEqual(tuple(x.shape), (3, 512, 512))
+        img = np.full((64, 64, 3), 255, np.uint8)
+        out = photometric(img, np.random.default_rng(1))
+        self.assertEqual((out.shape, out.dtype), ((64, 64, 3), np.uint8))

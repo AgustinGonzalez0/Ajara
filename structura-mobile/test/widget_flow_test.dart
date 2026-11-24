@@ -11,6 +11,7 @@ import 'package:structura_mobile/data/project_store.dart';
 import 'package:structura_mobile/features/import/import_screen.dart';
 import 'package:structura_mobile/services/analysis_service.dart';
 import 'package:structura_mobile/services/model_registry.dart';
+import 'package:structura_mobile/services/share_service.dart';
 
 import 'helpers.dart';
 
@@ -32,9 +33,18 @@ Future<void> settleUntil(WidgetTester t, Finder finder, {Duration timeout = cons
   }
 }
 
+/// Registra lo que se compartiría (la hoja de compartir del sistema no existe en tests).
+class FakeSharer implements FileSharer {
+  final shared = <(String path, String mime)>[];
+  @override
+  Future<void> shareFile(String path, {required String mimeType, String? subject, String? text}) async =>
+      shared.add((path, mimeType));
+}
+
 class Harness {
   final Directory root;
   final ProjectStore store;
+  final sharer = FakeSharer();
   Harness(this.root) : store = ProjectStore(Directory('${root.path}/projects'));
 
   Future<Widget> app({bool onboardingDone = false, File? pick}) async {
@@ -46,6 +56,7 @@ class Harness {
         appDirsProvider.overrideWithValue(AppDirs(projects: store.root, models: Directory('${root.path}/models'))),
         prefsProvider.overrideWithValue(prefs),
         installedModelsProvider.overrideWith((ref) async => [model]),
+        fileSharerProvider.overrideWithValue(sharer),
         if (pick != null) filePickProvider.overrideWithValue(() async => PickedFile(pick, 'Planta baja.png')),
       ],
       child: const StructuraApp(),
@@ -161,13 +172,33 @@ void main() {
     final report = File('${h.store.projectDir(project.id).path}/${project.activeAnalysis!.dir}/screening.json');
     expect(await t.runAsync(() => report.exists()), isTrue);
 
-    await t.scrollUntilVisible(find.byKey(const Key('view3d_seismic')), 200, scrollable: find.byType(Scrollable).last);
+    // Informe PDF generado en el dispositivo y entregado a la hoja de compartir.
+    await t.scrollUntilVisible(find.byKey(const Key('export_pdf')), 300, scrollable: find.byType(Scrollable).last);
+    await t.pump();
+    await t.tap(find.byKey(const Key('export_pdf')));
+    await settleUntil(t, find.byKey(const Key('pdf_saved')));
+    expect(find.byKey(const Key('pdf_saved')), findsOneWidget);
+    expect(h.sharer.shared.single.$2, mimePdf);
+    final pdf = File(h.sharer.shared.single.$1);
+    final head = await t.runAsync(() => pdf.openRead(0, 5).first);
+    expect(String.fromCharCodes(head!), '%PDF-');
+    expect(pdf.path, endsWith('informe_evaluacion.pdf'));
+
+    await t.scrollUntilVisible(find.byKey(const Key('view3d_seismic')), -200, scrollable: find.byType(Scrollable).last);
     await t.pump();
     await t.tap(find.byKey(const Key('view3d_seismic')));
     await settle(t, rounds: 20);
     expect(find.text('Simulación 3D'), findsOneWidget);
     expect(find.text('SIMULACIÓN PRELIMINAR'), findsOneWidget);
     expect(find.textContaining('Altura total declarada'), findsOneWidget);
+
+    // Compartir el modelo 3D (GLB).
+    await t.scrollUntilVisible(find.byKey(const Key('share_glb')), 200, scrollable: find.byType(Scrollable).last);
+    await t.pump();
+    await t.tap(find.byKey(const Key('share_glb')));
+    await settle(t, rounds: 4);
+    expect(h.sharer.shared.last.$2, mimeGlb);
+    expect(h.sharer.shared.last.$1, endsWith('model.glb'));
   });
 
   testWidgets('proyecto analizado: editor 2D y modelo 3D desde disco (sin re-procesar)', (t) async {

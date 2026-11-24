@@ -36,6 +36,13 @@ class SimulationException implements Exception {
   String toString() => message;
 }
 
+/// Número con coma decimal (es-AR), como se muestra en la app y en el informe.
+/// Sin [decimals] usa la representación más corta (2 → "2", 0.25 → "0,25").
+String fmtEs(num v, [int? decimals]) {
+  final t = decimals != null ? v.toStringAsFixed(decimals) : (v == v.roundToDouble() ? v.toInt().toString() : v.toString());
+  return t.replaceAll('.', ',');
+}
+
 enum Status { ok, attention, critical, notApplicable }
 
 Status statusForRatio(double r, {double attention = 0.7, double critical = 1.0}) {
@@ -186,13 +193,13 @@ class ScreeningEngine {
 
   List<String> _baseAssumptions() => [
         building.wallThicknessM != null
-            ? 'Espesor de muros declarado por el profesional: ${building.wallThicknessM!.toStringAsFixed(2)} m.'
-            : 'Espesor de muros tomado del plano detectado (mediana ${(medianWallThickness() * 100).toStringAsFixed(1)} cm): verificar.',
-        'Material: ${building.material.label} (τ = ${building.material.shearStrength} MPa, '
-            'f = ${building.material.flexuralStrength} MPa, γ = ${building.material.unitWeight} kN/m³) — valores indicativos.',
-        '${building.floors} piso(s) de ${building.storyHeightM.toStringAsFixed(2)} m; muros de planta baja repetidos en altura.',
-        'Planta = rectángulo envolvente de muros (${layout.lx.toStringAsFixed(2)} × ${layout.ly.toStringAsFixed(2)} m); '
-            'carga de losa ${building.slabLoadKpa} kPa.',
+            ? 'Espesor de muros declarado por el profesional: ${fmtEs(building.wallThicknessM!, 2)} m.'
+            : 'Espesor de muros tomado del plano detectado (mediana ${fmtEs((medianWallThickness() * 100), 1)} cm): verificar.',
+        'Material: ${building.material.label} (τ = ${fmtEs(building.material.shearStrength)} MPa, '
+            'f = ${fmtEs(building.material.flexuralStrength)} MPa, γ = ${fmtEs(building.material.unitWeight)} kN/m³) — valores indicativos.',
+        '${building.floors} piso(s) de ${fmtEs(building.storyHeightM, 2)} m; muros de planta baja repetidos en altura.',
+        'Planta = rectángulo envolvente de muros (${fmtEs(layout.lx, 2)} × ${fmtEs(layout.ly, 2)} m); '
+            'carga de losa ${fmtEs(building.slabLoadKpa)} kPa.',
         'No se consideran armaduras, fundaciones, suelo de apoyo, calidad constructiva ni deterioro.',
       ];
 
@@ -246,9 +253,9 @@ class ScreeningEngine {
     double dens(double k) => k / layout.floorArea * 100;
     final indicators = [
       Indicator('dc_x', 'Corte basal dirección X (demanda/capacidad)', dcX, '', statusForRatio(dcX),
-          'Fuerza sísmica ${v.toStringAsFixed(0)} kN frente a capacidad de muros en X ${(tau * kx).toStringAsFixed(0)} kN.'),
+          'Fuerza sísmica ${fmtEs(v, 0)} kN frente a capacidad de muros en X ${fmtEs((tau * kx), 0)} kN.'),
       Indicator('dc_y', 'Corte basal dirección Y (demanda/capacidad)', dcY, '', statusForRatio(dcY),
-          'Capacidad de muros en Y ${(tau * ky).toStringAsFixed(0)} kN.'),
+          'Capacidad de muros en Y ${fmtEs((tau * ky), 0)} kN.'),
       Indicator('dc_max_element', 'Muro más exigido (con torsión)', maxWall, '', statusForRatio(maxWall),
           'Incluye torsión por excentricidad entre centro de masa y de rigidez y ±5 % accidental.'),
       Indicator('torsion_x', 'Excentricidad en planta (sismo en X)', torX, 'e/L',
@@ -261,9 +268,9 @@ class ScreeningEngine {
     ];
     return HazardResult(Hazard.seismic, indicators, ratios, [
       ..._baseAssumptions(),
-      'Espectro de meseta: PGA ${input.pgaG} g, suelo ${input.soil.label} (S = ${input.soil.factor}), Tc = ${input.cornerPeriodS} s.',
-      'Período estimado T = ${period.toStringAsFixed(2)} s (T ≈ 0,05·H^0,75); Sa = ${sa.toStringAsFixed(2)} g; '
-          'R = ${building.material.responseFactor}; Cs = ${cs.toStringAsFixed(3)}; peso W = ${w.toStringAsFixed(0)} kN.',
+      'Espectro de meseta: PGA ${fmtEs(input.pgaG)} g, ${input.soil.label} (S = ${fmtEs(input.soil.factor)}), Tc = ${fmtEs(input.cornerPeriodS)} s.',
+      'Período estimado T = ${fmtEs(period, 2)} s (T ≈ 0,05·H^0,75); Sa = ${fmtEs(sa, 2)} g; '
+          'R = ${fmtEs(building.material.responseFactor)}; Cs = ${fmtEs(cs, 3)}; peso W = ${fmtEs(w, 0)} kN.',
       'Diafragma rígido; rigidez de cada muro proporcional a su área de corte.',
     ], {
       'period_s': period,
@@ -326,17 +333,17 @@ class ScreeningEngine {
     }
     return HazardResult(Hazard.tsunami, [
       Indicator('wall_out_of_plane', 'Muros perpendiculares al flujo (flexión)', maxWall, '', statusForRatio(maxWall),
-          'Momento ${mDemand.toStringAsFixed(1)} kN·m/m por presión hidrodinámica + hidrostática en planta baja.'),
+          'Momento ${fmtEs(mDemand, 1)} kN·m/m por presión hidrodinámica + hidrostática en planta baja.'),
       Indicator('base_shear', 'Corte en muros paralelos al flujo', shearDc, '', statusForRatio(shearDc),
-          'Fuerza hidrodinámica total ${force.toStringAsFixed(0)} kN frente a capacidad ${cap.toStringAsFixed(0)} kN.'),
+          'Fuerza hidrodinámica total ${fmtEs(force, 0)} kN frente a capacidad ${fmtEs(cap, 0)} kN.'),
       Indicator('sliding', 'Deslizamiento global', sliding, '', statusForRatio(sliding),
-          'Fuerza del agua frente a rozamiento μ·W (μ = ${building.frictionCoefficient}, W = ${w.toStringAsFixed(0)} kN).'),
+          'Fuerza del agua frente a rozamiento μ·W (μ = ${fmtEs(building.frictionCoefficient)}, W = ${fmtEs(w, 0)} kN).'),
     ], ratios, [
       ..._baseAssumptions(),
-      'Inundación h = ${h.toStringAsFixed(2)} m; velocidad u = ${u.toStringAsFixed(2)} m/s'
+      'Inundación h = ${fmtEs(h, 2)} m; velocidad u = ${fmtEs(u, 2)} m/s'
           '${input.flowVelocityMs == null ? ' (estimada como √(g·h), simplificación)' : ''}; ${input.direction.label}.',
       'FEMA P-646 simplificado: ρs = 1100 kg/m³, Cd = 2. Sin impacto de escombros, socavación ni subpresión (flotación).',
-      'Muros como vigas simples entre fundación y losa (luz ${hs.toStringAsFixed(2)} m).',
+      'Muros como vigas simples entre fundación y losa (luz ${fmtEs(hs, 2)} m).',
     ], {
       'depth_m': h,
       'velocity_ms': u,
@@ -370,12 +377,12 @@ class ScreeningEngine {
     }
     return HazardResult(Hazard.wind, [
       Indicator('facade_out_of_plane', 'Muros de fachada (flexión por presión)', maxWall, '', statusForRatio(maxWall),
-          'Presión neta ${(p * 1000).toStringAsFixed(0)} Pa sobre muros exteriores perpendiculares al viento.'),
+          'Presión neta ${fmtEs((p * 1000), 0)} Pa sobre muros exteriores perpendiculares al viento.'),
       Indicator('base_shear', 'Corte basal por viento', dc, '', statusForRatio(dc),
-          'Fuerza total ${force.toStringAsFixed(0)} kN frente a capacidad ${cap.toStringAsFixed(0)} kN.'),
+          'Fuerza total ${fmtEs(force, 0)} kN frente a capacidad ${fmtEs(cap, 0)} kN.'),
     ], ratios, [
       ..._baseAssumptions(),
-      'Viento V = ${input.speedMs} m/s; q = 0,613·V² = ${(q * 1000).toStringAsFixed(0)} Pa; Cp neto 1,3; ${input.direction.label}.',
+      'Viento V = ${fmtEs(input.speedMs)} m/s; q = 0,613·V² = ${fmtEs((q * 1000), 0)} Pa; Cp neto 1,3; ${input.direction.label}.',
       'Sin factores de exposición, topografía ni ráfaga normativos; sin succión en cubierta.',
     ], {
       'speed_ms': input.speedMs,

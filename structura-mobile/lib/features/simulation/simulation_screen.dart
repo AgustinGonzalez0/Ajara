@@ -7,6 +7,7 @@ import 'package:structura_sim/structura_sim.dart';
 import '../../app/providers.dart';
 import '../../app/theme.dart';
 import '../../services/screening_service.dart';
+import '../../services/share_service.dart';
 import '../../widgets/common.dart';
 
 final screeningServiceProvider = Provider<ScreeningService>((ref) => ScreeningService(ref.watch(projectStoreProvider)));
@@ -67,6 +68,33 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
   ScreeningReport? _report;
   String? _error;
   bool _busy = false;
+  // Informe PDF
+  bool _exporting = false;
+  String? _pdfPath;
+  String? _pdfError;
+
+  Future<void> _exportPdf() async {
+    setState(() {
+      _exporting = true;
+      _pdfError = null;
+    });
+    try {
+      final p = await ref.read(projectStoreProvider).load(widget.projectId);
+      final path = await ref.read(reportServiceProvider).exportScreeningReport(p);
+      if (!mounted) return;
+      setState(() => _pdfPath = path);
+      await _sharePdf(path, p.name);
+    } on Object catch (e) {
+      if (mounted) setState(() => _pdfError = 'No se pudo generar el informe: $e');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _sharePdf(String path, String projectName) => ref.read(fileSharerProvider).shareFile(path,
+      mimeType: mimePdf,
+      subject: 'Evaluación preliminar — $projectName',
+      text: 'Informe generado con STRUCTURA AI. Evaluación preliminar: no es un cálculo estructural.');
 
   Future<void> _evaluate() async {
     setState(() {
@@ -127,12 +155,42 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
                   if (_report != null) ...[
                     const SectionLabel('Resultados'),
                     for (final r in _report!.results) _HazardCard(result: r, projectId: widget.projectId),
+                    const SectionLabel('4 · Informe'),
+                    _reportCard(context),
                   ],
                 ],
               ]),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _reportCard(BuildContext context) {
+    final t = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(Gap.lg),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('PDF para clientes y equipos: resumen con semáforo, datos declarados, mapa de calor por muro, '
+              'supuestos, métodos y espacio para la revisión del profesional. Se genera en el teléfono, sin conexión.',
+              style: t.textTheme.bodyMedium),
+          const SizedBox(height: Gap.md),
+          FilledButton.icon(
+            key: const Key('export_pdf'),
+            onPressed: _exporting ? null : _exportPdf,
+            icon: _exporting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.picture_as_pdf_outlined),
+            label: Text(_exporting ? 'Generando informe…' : 'Generar y compartir PDF'),
+          ),
+          if (_pdfPath != null) ...[
+            const SizedBox(height: Gap.sm),
+            Text('Informe guardado en el proyecto.', key: const Key('pdf_saved'), style: t.textTheme.bodySmall),
+          ],
+          if (_pdfError != null) ...[const SizedBox(height: Gap.sm), NoticeBanner(_pdfError!, color: StructuraColors.danger)],
+        ]),
       ),
     );
   }

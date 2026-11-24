@@ -15,6 +15,8 @@ import '../services/analysis_service.dart';
 import '../services/model_registry.dart';
 import '../services/photo_importer.dart';
 import '../services/plan_importer.dart';
+import '../services/report_service.dart';
+import '../services/share_service.dart';
 
 class AppDirs {
   final Directory projects;
@@ -32,6 +34,9 @@ final planImporterProvider =
     Provider<PlanImporter>((ref) => PlanImporter(ref.watch(projectStoreProvider), ref.watch(pdfRasterizerProvider)));
 final modelRegistryProvider =
     Provider<ModelRegistry>((ref) => ModelRegistry(ref.watch(appDirsProvider).models, rootBundle));
+final fileSharerProvider = Provider<FileSharer>((ref) => const SystemFileSharer());
+final reportServiceProvider =
+    Provider<ReportService>((ref) => ReportService(ref.watch(projectStoreProvider), loadFonts: loadBundledReportFonts));
 final installedModelsProvider =
     FutureProvider<List<InstalledModel>>((ref) => ref.watch(modelRegistryProvider).installedModels());
 

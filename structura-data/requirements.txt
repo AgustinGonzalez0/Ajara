@@ -4,4 +4,5 @@ numpy>=1.26
 PyMuPDF>=1.24.3       # tools.import_plans: renderizado PDF (módulo `pymupdf`)
 Pillow>=10.0          # tools.import_plans: EXIF, transparencias, 16 bits, DPI de cabecera
 PyYAML>=6.0           # config/classes.yaml
+shapely>=2.0          # tools.vector_sources / render_vector_plans (planos vectoriales abiertos)
 # Tests: solo biblioteca estándar (unittest). Sin dependencias adicionales.

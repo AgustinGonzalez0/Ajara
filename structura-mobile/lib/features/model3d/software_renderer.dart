@@ -11,6 +11,8 @@
 /// la altura) y mallas superpuestas (p. ej., el agua del tsunami).
 library;
 
+export '../../app/heat_scale.dart' show heatColor;
+
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
@@ -102,26 +104,6 @@ class RenderStats {
   final int culled;
   final Duration time;
   const RenderStats(this.drawn, this.culled, this.time);
-}
-
-/// Color del mapa de calor para una relación demanda/capacidad.
-int heatColor(double ratio) {
-  if (!ratio.isFinite) return 0xFFB3261E;
-  // 0 → verde, 0,7 → amarillo, ≥1 → rojo.
-  final r = ratio.clamp(0.0, 1.2);
-  late double rr, gg, bb;
-  if (r <= 0.7) {
-    final t = r / 0.7;
-    rr = 0.24 + t * (0.96 - 0.24);
-    gg = 0.75 + t * (0.75 - 0.75);
-    bb = 0.50 - t * 0.30;
-  } else {
-    final t = ((r - 0.7) / 0.3).clamp(0.0, 1.0);
-    rr = 0.96 - t * 0.01;
-    gg = 0.75 - t * 0.55;
-    bb = 0.20 - t * 0.05;
-  }
-  return 0xFF000000 | ((rr * 255).round() << 16) | ((gg * 255).round() << 8) | (bb * 255).round();
 }
 
 /// Proyecta y ordena los triángulos visibles de todas las mallas.
