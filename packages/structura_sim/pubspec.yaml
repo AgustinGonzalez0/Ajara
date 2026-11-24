@@ -1,0 +1,12 @@
+name: structura_sim
+description: STRUCTURA — evaluación preliminar (screening) de sismo, tsunami y viento sobre el Building Model. NO reemplaza el cálculo estructural profesional.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dependencies:
+  structura_model:
+    path: ../structura_model
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.31.1

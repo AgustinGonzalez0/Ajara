@@ -55,6 +55,10 @@ enum Provenance {
   /// Detectado por un modelo de IA (ver [Source.modelId]).
   aiDetected,
 
+  /// Detectado por un algoritmo clásico de visión por computadora (sin IA, determinista).
+  /// No tiene confianza probabilística calibrada.
+  classicDetected,
+
   /// Detectado por IA y luego corregido por el usuario.
   userCorrected,
 

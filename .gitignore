@@ -24,3 +24,4 @@ structura-mobile/android/app/.cxx/
 data/
 packages/*/.dart_tool/
 packages/*/pubspec.lock
+packages/*/tool/*.pgm

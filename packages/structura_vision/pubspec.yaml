@@ -1,0 +1,14 @@
+name: structura_vision
+description: STRUCTURA — visión por computadora clásica (sin IA) para planos y fotos de planos. Corre en cualquier celular.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dependencies:
+  structura_geometry:
+    path: ../structura_geometry
+  structura_model:
+    path: ../structura_model
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.31.1
