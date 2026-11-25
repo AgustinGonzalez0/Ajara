@@ -33,6 +33,7 @@ String statusShort(Status s) => switch (s) {
     };
 
 const hazardLabels = {Hazard.seismic: 'Sismo / terremoto', Hazard.tsunami: 'Tsunami', Hazard.wind: 'Viento'};
+const hazardShort = {Hazard.seismic: 'Sismo', Hazard.tsunami: 'Tsunami', Hazard.wind: 'Viento'};
 const hazardIcons = {Hazard.seismic: Icons.vibration_rounded, Hazard.tsunami: Icons.waves_rounded, Hazard.wind: Icons.air_rounded};
 
 /// Zonas sísmicas del reglamento INPRES-CIRSOC 103 (2013) con su aceleración de
@@ -440,7 +441,7 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
             for (final s in SoilClass.values)
               ChoiceChip(
                 key: Key('soil_${s.name}'),
-                label: Text('${s.label.replaceFirst('Suelo ', '')} · S ${fmt(s.factor, 2)}'),
+                label: Text('${_cap(s.label.replaceFirst('Suelo ', ''))} · S ${fmt(s.factor, 2)}'),
                 selected: _soil == s,
                 onSelected: (_) => setState(() => _soil = s),
               ),
@@ -487,6 +488,8 @@ class _SimulationScreenState extends ConsumerState<SimulationScreen> {
       ),
     );
   }
+
+  static String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
   static String _short(FlowDirection d) => switch (d) {
         FlowDirection.plusX => 'desde la izquierda',
@@ -735,11 +738,9 @@ class _HazardRowState extends State<_HazardRow> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Flexible(
-                      flex: 3,
-                      child: Text(hazardLabels[r.hazard]!, style: t.textTheme.titleSmall, overflow: TextOverflow.ellipsis)),
+                  Flexible(child: Text(hazardShort[r.hazard]!, style: t.textTheme.titleSmall, overflow: TextOverflow.ellipsis)),
                   const SizedBox(width: Gap.sm),
-                  Flexible(flex: 2, child: StatusPill(statusShort(r.overall), color: c)),
+                  StatusPill(statusShort(r.overall), color: c),
                 ]),
                 if (worst != null)
                   Text(worst.label,

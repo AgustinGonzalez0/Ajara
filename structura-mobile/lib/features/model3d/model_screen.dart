@@ -145,7 +145,12 @@ class _ViewerState extends State<_Viewer> with SingleTickerProviderStateMixin {
   }
 
   /// Encuadre con margen: los controles flotantes ocupan parte de la pantalla.
-  OrbitCamera _framed() => _render.frame()..distance *= 1.35;
+  OrbitCamera _framed() {
+    // En un celular vertical el ancho visible es angosto: se aleja la cámara en proporción.
+    final s = MediaQuery.sizeOf(context);
+    final portrait = s.width > 0 && s.height > s.width ? s.height / s.width * 0.8 : 1.0;
+    return _render.frame()..distance *= 1.35 * math.max(1.0, portrait);
+  }
 
   @override
   void didUpdateWidget(_Viewer old) {

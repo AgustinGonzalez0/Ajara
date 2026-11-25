@@ -11,7 +11,8 @@ viento, todo en el celular y sin conexión.**
   dispositivo, entrenada con 1 499 plantas reales (Swiss Dwellings, CC BY 4.0) dibujadas con estilos
   variados: mIoU 0,89 en test frente a 0,25 del motor clásico. **En validación**: falta medirla con
   fotos de planos reales. Las simulaciones no usan IA: son fórmulas deterministas.
-- 🧊 **Modelo 3D** navegable (órbita, zoom, capas) y exportado a GLB.
+- 🧊 **Modelo 3D detallado** navegable (órbita, zoom, capas) y exportado a GLB: cierra esquinas,
+  alinea muros, encaja aberturas y arma el piso solo dentro de los ambientes.
 - 🌊 **Evaluación preliminar**: indicadores demanda/capacidad, muros coloreados en 3D,
   vaivén sísmico y agua de tsunami animados. **No reemplaza el cálculo estructural ni declara
   que una estructura sea segura** (ver [`docs/SIMULACION.md`](docs/SIMULACION.md)).
@@ -21,7 +22,8 @@ viento, todo en el celular y sin conexión.**
 Estado y pendientes: [`docs/PROGRESS.md`](docs/PROGRESS.md) ·
 Arquitectura: [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md) ·
 Decisiones: [`docs/DECISIONES.md`](docs/DECISIONES.md) ·
-Entorno: [`docs/ENTORNO.md`](docs/ENTORNO.md)
+Entorno: [`docs/ENTORNO.md`](docs/ENTORNO.md) ·
+Presentar el proyecto: [`docs/GUIA_DEMO.md`](docs/GUIA_DEMO.md)
 
 ## Flujo en la app (pocos toques)
 **Fotografiar plano** → confirmar el recorte (**Generar modelo 3D**) → el 3D aparece solo →
@@ -35,8 +37,8 @@ Entorno: [`docs/ENTORNO.md`](docs/ENTORNO.md)
 | `structura-core` | Entrenamiento, evaluación, benchmark, exportación ONNX y **cuantización INT8** (PyTorch + CUDA) | 22 |
 | `packages/structura_model` | Building Model: procedencia, confianza, desconocidos explícitos | 5 |
 | `packages/structura_vision` | **Visión clásica sin IA**: rectificación de fotos, binarización, detección | 6 |
-| `packages/structura_geometry` | Geometry Engine: vectorización, malla 3D, GLB | 8 |
-| `packages/structura_pipeline` | Integración IA: tiles, etapas, progreso, cancelación | 9 |
+| `packages/structura_geometry` | Geometry Engine: vectorización, **afinado del 3D**, malla, piso interior, GLB | 19 |
+| `packages/structura_pipeline` | Integración IA: tiles, TTA, etapas, progreso, cancelación | 10 |
 | `packages/structura_sim` | **Evaluación preliminar** de sismo, tsunami y viento | 9 |
 | `structura-mobile` | App Android (Flutter) | 34, más 1 E2E en Android |
 

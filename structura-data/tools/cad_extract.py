@@ -84,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
                     r = ex.submit(_process, f, str(out), a.wall_px).result()
             except BrokenProcessPool:
                 r = [{"file": Path(f).stem, "error": "el proceso se cerró (memoria)"}]
+            except Exception as e:  # un DXF raro no frena al resto
+                r = [{"file": Path(f).stem, "error": f"{type(e).__name__}: {e}"}]
             write_json(meta / f"{Path(f).stem}.json", r)
             pending.remove(f)
             print(f"  {len(files) - len(pending)}/{len(files)} {Path(f).stem}: "

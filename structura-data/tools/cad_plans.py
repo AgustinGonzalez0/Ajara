@@ -405,6 +405,8 @@ def sheet_labels(sheet: Sheet) -> dict[str, list]:
             if r.geom_type != "Polygon":
                 continue
             c = list(r.exterior.coords)
+            if len(c) < 3:  # rectángulo degenerado (trazos colineales)
+                continue
             a, b = math.dist(c[0], c[1]), math.dist(c[1], c[2])
             if min(a, b) <= 3 * w and max(a, b) <= 40 * w:
                 out["window"].append(r)

@@ -270,16 +270,28 @@ List<Rect2> floorRects(BuildingModel model) {
   final ts = model.allElements.whereType<Wall>().map((w) => w.thicknessPx).toList()..sort();
   if (ts.isEmpty || els.isEmpty) return bbox;
   final cell = math.max(1.0, ts[ts.length ~/ 2] / 2);
-  final gw = ((rr - l) / cell).ceil() + 3, gh = ((bb - t) / cell).ceil() + 3;
+  const pad = 3; // margen libre alrededor: el relleno del exterior siempre puede rodear el dibujo
+  final gw = ((rr - l) / cell).ceil() + 2 * pad + 1, gh = ((bb - t) / cell).ceil() + 2 * pad + 1;
   if (gw * gh > 4000000) return bbox;
   final block = Uint8List(gw * gh);
-  int cx(double x) => ((x - l) / cell).floor() + 1;
-  int cy(double y) => ((y - t) / cell).floor() + 1;
+  int cx(double x) => ((x - l) / cell).floor() + pad;
+  int cy(double y) => ((y - t) / cell).floor() + pad;
   for (final e in els) {
     final r = e.bounds;
     for (var y = cy(r.top); y <= cy(r.bottom - 1e-6); y++) {
       for (var x = cx(r.left); x <= cx(r.right - 1e-6); x++) {
         if (x >= 0 && y >= 0 && x < gw && y < gh) block[y * gw + x] = 1;
+      }
+    }
+  }
+  // Barreras engrosadas una celda: sellan rendijas menores a un espesor de muro (esquinas
+  // mal cerradas por la detección) sin cerrar puertas, que ya son barrera.
+  final grown = Uint8List.fromList(block);
+  for (var y = 0; y < gh; y++) {
+    for (var x = 0; x < gw; x++) {
+      if (block[y * gw + x] == 0) continue;
+      for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
+        if (nx >= 0 && ny >= 0 && nx < gw && ny < gh) grown[ny * gw + nx] = 1;
       }
     }
   }
@@ -293,17 +305,37 @@ List<Rect2> floorRects(BuildingModel model) {
     for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
       if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
       final j = ny * gw + nx;
-      if (outside[j] == 1 || block[j] == 1) continue;
+      if (outside[j] == 1 || grown[j] == 1) continue;
       outside[j] = 1;
       stack.add(j);
     }
   }
   var inside = 0;
   for (var i = 0; i < outside.length; i++) {
-    if (outside[i] == 0 && block[i] == 0) inside++;
+    if (outside[i] == 0 && grown[i] == 0) inside++;
   }
   // Con menos del 25 % de la caja como interior, la planta no cierra: rectángulo envolvente.
   if (inside * cell * cell < 0.25 * (rr - l) * (bb - t)) return bbox;
+  // Piso = interior + muros + celdas engrosadas que tocan el interior (el anillo exterior no).
+  final floor = Uint8List(gw * gh);
+  for (var y = 0; y < gh; y++) {
+    for (var x = 0; x < gw; x++) {
+      final i = y * gw + x;
+      if (outside[i] == 1) continue;
+      if (grown[i] == 0 || block[i] == 1) {
+        floor[i] = 1;
+        continue;
+      }
+      for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
+        if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+        final j = ny * gw + nx;
+        if (outside[j] == 0 && grown[j] == 0) {
+          floor[i] = 1;
+          break;
+        }
+      }
+    }
+  }
   // Corridas por fila fusionadas verticalmente cuando coinciden.
   final rects = <Rect2>[];
   final open = <(int, int), int>{}; // (x0, x1) -> fila de inicio
@@ -312,9 +344,9 @@ List<Rect2> floorRects(BuildingModel model) {
     if (y < gh) {
       var x = 0;
       while (x < gw) {
-        if (outside[y * gw + x] == 0) {
+        if (floor[y * gw + x] == 1) {
           final x0 = x;
-          while (x < gw && outside[y * gw + x] == 0) {
+          while (x < gw && floor[y * gw + x] == 1) {
             x++;
           }
           runs.add((x0, x));
@@ -326,7 +358,7 @@ List<Rect2> floorRects(BuildingModel model) {
     for (final key in open.keys.toList()) {
       if (!runs.contains(key)) {
         final y0 = open.remove(key)!;
-        rects.add(Rect2(l + (key.$1 - 1) * cell, t + (y0 - 1) * cell, l + (key.$2 - 1) * cell, t + (y - 1) * cell));
+        rects.add(Rect2(l + (key.$1 - pad) * cell, t + (y0 - pad) * cell, l + (key.$2 - pad) * cell, t + (y - pad) * cell));
       }
     }
     for (final run in runs) {

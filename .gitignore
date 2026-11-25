@@ -29,3 +29,6 @@ packages/*/tool/*.pgm
 # Planos del usuario (privados): nunca versionar
 /ARCHIVOS SOTO MMO COLEGIO/
 /ARCHIVOS SOTO MMO COLEGIO.zip
+
+# Material de presentación (APK, capturas, PDF de ejemplo): se regenera
+/entrega/

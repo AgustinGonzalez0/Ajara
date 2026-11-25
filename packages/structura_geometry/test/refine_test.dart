@@ -103,6 +103,14 @@ void main() {
         levels: [Level(id: 'L0', elements: walls.where((w) => w.id != 'r').toList())],
         source: const Source(Provenance.derived));
     expect(floorRects(open), hasLength(1));
+    // Una rendija de medio espesor en una esquina no vacía el ambiente.
+    final leaky = BuildingModel(
+        id: 'z',
+        plan: const PlanReference(widthPx: 300, heightPx: 300),
+        levels: [Level(id: 'L0', elements: [h('t', 14, 200, 0), ...walls.where((w) => w.id != 't')])],
+        source: const Source(Provenance.derived));
+    final leakyArea = floorRects(leaky).fold<double>(0, (s, r) => s + r.width * r.height);
+    expect(leakyArea, greaterThan(0.6 * bboxArea));
   });
 
   test('muñones cortos montados sobre un muro se eliminan; una T verdadera se conserva', () {

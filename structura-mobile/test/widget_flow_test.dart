@@ -173,7 +173,7 @@ void main() {
     await t.tap(find.byKey(const Key('run_screening')));
     await settle(t, rounds: 20);
     expect(find.byKey(const Key('results_panel')), findsOneWidget);
-    expect(find.text('Sismo / terremoto'), findsOneWidget);
+    expect(find.text('Sismo'), findsOneWidget);
     await t.tap(find.byKey(const Key('hazard_seismic')));
     await t.pump(const Duration(milliseconds: 300));
     expect(find.text('Corte basal dirección X (demanda/capacidad)'), findsOneWidget);
