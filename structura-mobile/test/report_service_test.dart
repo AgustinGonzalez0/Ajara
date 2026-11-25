@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:structura_geometry/structura_geometry.dart' show computeTakeoff;
 import 'package:structura_mobile/app/heat_scale.dart';
 import 'package:structura_mobile/services/report_service.dart';
 import 'package:structura_model/structura_model.dart';
@@ -45,7 +46,7 @@ Map<String, Object?> screening({bool tsunami = true, bool wind = false}) {
   return (jsonDecode(jsonEncode(r.toJson())) as Map).cast<String, Object?>();
 }
 
-ReportJob job(Map<String, Object?> s, {Uint8List? planImage}) => ReportJob(
+ReportJob job(Map<String, Object?> s, {Uint8List? planImage, Map<String, Object?>? takeoff}) => ReportJob(
       projectName: 'Casa Pérez — Ñuñoa',
       projectDescription: 'Vivienda de 2 plantas',
       buildingType: 'Residencial',
@@ -60,6 +61,7 @@ ReportJob job(Map<String, Object?> s, {Uint8List? planImage}) => ReportJob(
       screening: s,
       buildingModel: box().toJson(),
       planImage: planImage,
+      takeoff: takeoff,
       fonts: fonts(),
       generatedAt: DateTime.utc(2026, 11, 24, 14),
     );
@@ -119,6 +121,17 @@ void main() {
     expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
     expect(latin1.decode(bytes.sublist(bytes.length - 8)).trim(), endsWith('%%EOF'));
     expect(bytes.length, greaterThan(20000)); // fuentes embebidas + imagen
+  });
+
+  test('cómputo métrico en el informe: filas legibles y PDF válido', () async {
+    final t = (jsonDecode(jsonEncode(computeTakeoff(box()).toJson())) as Map).cast<String, Object?>();
+    final rows = takeoffRows(t);
+    expect(rows.first[0], 'Superficie cubierta');
+    expect(rows.first[1], endsWith('m²'));
+    expect(rows.map((r) => r[0]), contains('Densidad de muros'));
+    expect(rows.any((r) => r[0].startsWith('Muro ')), isTrue);
+    final bytes = await buildScreeningPdf(job(screening(), takeoff: t));
+    expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
   });
 
   test('sin tsunami ni viento también se genera', () async {

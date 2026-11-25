@@ -119,7 +119,14 @@ class SettingsScreen extends ConsumerWidget {
                         ]),
                         const SizedBox(height: Gap.sm),
                         Text('Clases: ${m.descriptor.classes.join(', ')}', style: t.textTheme.bodySmall),
-                        if (m.descriptor.valMiou != null)
+                        if (m.descriptor.evaluation['cad_unseen_wall_iou'] != null)
+                          Text(
+                              'Prueba en ${m.descriptor.evaluation['cad_unseen_sheets']} láminas CAD reales de obras no vistas: '
+                              'IoU de muros ${_d(m.descriptor.evaluation['cad_unseen_wall_iou'])} '
+                              '(antes ${_d(m.descriptor.evaluation['cad_unseen_wall_iou_before'])}). '
+                              'Plantas Swiss de prueba: mIoU ${_d(m.descriptor.evaluation['swiss_test_miou'])}.',
+                              style: t.textTheme.bodySmall)
+                        else if (m.descriptor.valMiou != null)
                           Text('mIoU de validación declarado: ${m.descriptor.valMiou!.toStringAsFixed(3)} (sobre su propio dataset)',
                               style: t.textTheme.bodySmall),
                       ]),
@@ -162,3 +169,5 @@ class SettingsScreen extends ConsumerWidget {
         trailing: StatusPill(ok ? 'DISPONIBLE' : 'NO DISPONIBLE', color: ok ? StructuraColors.success : StructuraColors.textMuted),
       );
 }
+
+String _d(Object? v) => v is num ? v.toStringAsFixed(2).replaceAll('.', ',') : '—';

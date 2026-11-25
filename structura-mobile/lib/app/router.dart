@@ -15,6 +15,7 @@ import '../features/settings/settings_screen.dart';
 import '../features/simulation/calibrate_screen.dart';
 import '../features/simulation/simulation_screen.dart';
 import '../features/splash/splash_screen.dart';
+import '../features/takeoff/takeoff_screen.dart';
 import 'shell.dart';
 
 abstract final class Routes {
@@ -32,8 +33,9 @@ abstract final class Routes {
   static String photo(String id, {bool camera = true, bool quick = false}) =>
       '/projects/$id/photo?source=${camera ? 'camera' : 'gallery'}${quick ? '&quick=1' : ''}';
   static String simulate(String id) => '/projects/$id/simulate';
-  static String calibrate(String id, {bool thenSimulate = false}) =>
-      '/projects/$id/calibrate${thenSimulate ? '?next=simulate' : ''}';
+  static String calibrate(String id, {bool thenSimulate = false, bool thenTakeoff = false}) =>
+      '/projects/$id/calibrate${thenSimulate ? '?next=simulate' : thenTakeoff ? '?next=takeoff' : ''}';
+  static String takeoff(String id) => '/projects/$id/takeoff';
   static String model3dHazard(String id, String hazard) => '/projects/$id/model?hazard=$hazard';
 
   static String _q(Map<String, bool> flags) {
@@ -81,7 +83,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
               path: 'calibrate',
               builder: (_, s) => CalibrateScreen(
-                  projectId: s.pathParameters['id']!, thenSimulate: s.uri.queryParameters['next'] == 'simulate')),
+                  projectId: s.pathParameters['id']!,
+                  thenSimulate: s.uri.queryParameters['next'] == 'simulate',
+                  thenTakeoff: s.uri.queryParameters['next'] == 'takeoff')),
+          GoRoute(path: 'takeoff', builder: (_, s) => TakeoffScreen(projectId: s.pathParameters['id']!)),
         ],
       ),
     ],

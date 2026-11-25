@@ -3,6 +3,7 @@ library;
 
 import 'package:structura_model/structura_model.dart';
 
+import 'evidence.dart';
 import 'refine.dart';
 import 'segmentation.dart';
 import 'vectorizer.dart';
@@ -35,7 +36,19 @@ class BuildingModelBuilder {
   }) {
     final v = vectorizer.run(seg, source: detectorSource);
     RefineResult? refined;
-    if (refine) refined = refiner.refine(v.elements);
+    if (refine) {
+      refined = refiner.refine(v.elements);
+      // Si la imagen muestra que un muro sigue, se prolonga y se afina de nuevo para que
+      // las esquinas y los tramos colineales se cierren (ambientes cerrados en planta).
+      final ext = extendWallsAlongEvidence(refined.elements, seg);
+      if (ext.extended > 0) {
+        final second = refiner.refine(ext.elements);
+        refined.report
+          ..add(second.report)
+          ..wallsExtended += ext.extended;
+        refined = RefineResult(second.elements, second.relations, refined.report);
+      }
+    }
     final model = BuildingModel(
       id: modelId,
       plan: PlanReference(widthPx: seg.width, heightPx: seg.height, imageSha256: imageSha256, dpi: dpi),

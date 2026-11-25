@@ -20,6 +20,7 @@ import '../services/plan_importer.dart';
 import '../services/report_service.dart';
 import '../services/screening_service.dart';
 import '../services/share_service.dart';
+import '../services/takeoff_service.dart';
 
 class AppDirs {
   final Directory projects;
@@ -285,6 +286,7 @@ class AnalysisController extends Notifier<AnalysisState> {
 
 // ---------------------------------------------------------------- Evaluación
 final screeningServiceProvider = Provider<ScreeningService>((ref) => ScreeningService(ref.watch(projectStoreProvider)));
+final takeoffServiceProvider = Provider<TakeoffService>((ref) => TakeoffService(ref.watch(projectStoreProvider)));
 
 /// Building Model del análisis activo (con la escala, si se calibró).
 final simModelProvider = FutureProvider.autoDispose.family<BuildingModel, String>((ref, id) async {

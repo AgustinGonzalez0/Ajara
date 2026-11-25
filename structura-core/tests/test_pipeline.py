@@ -186,3 +186,31 @@ class TestExperimentalOptions(TempDirCase):
         img = np.full((64, 64, 3), 255, np.uint8)
         out = photometric(img, np.random.default_rng(1))
         self.assertEqual((out.shape, out.dtype), ((64, 64, 3), np.uint8))
+
+
+class TestFineTune(TempDirCase):
+    def test_ignored_pixels_and_finetune_with_mix(self):
+        """Máscaras con 255 (ignorado) se leen, no suman a la loss, y el ajuste fino arranca
+        desde un checkpoint mezclando tiles de otro dataset."""
+        from core.data import IGNORE_INDEX
+        from core.io_utils import read_mask
+
+        cad = make_tile_dataset(self.root / "cad", 2, 1, 1, seed=3)
+        for name in ("train_000", "validation_000"):
+            p = cad / "masks" / f"{name}.png"
+            m = read_mask(p)
+            m[:100, :100] = IGNORE_INDEX
+            imwrite(p, m)
+        x, y = PlanDataset(cad, "train")[0]
+        self.assertEqual(int(y[:100, :100].unique().item()), IGNORE_INDEX)
+        base = make_tile_dataset(self.root / "base", 3, 1, 1)
+        init = save_random_checkpoint(self.root / "init.pt", seed=1)
+        out = self.root / "ft"
+        args = train_mod.build_parser().parse_args(
+            ["--dataset", str(cad), "--output", str(out), "--epochs", "1", "--batch-size", "2", "--device", "cpu",
+             "--init", str(init), "--mix-dataset", str(base), "--mix-tiles", "2"])
+        summary = train_mod.train(args)
+        cfg = json.loads((out / "config.json").read_text(encoding="utf-8"))
+        self.assertEqual(cfg["train_tiles"], 4)  # 2 propios + 2 mezclados
+        self.assertTrue((out / "best.pt").exists())
+        self.assertGreaterEqual(summary["best_val_miou"], 0.0)

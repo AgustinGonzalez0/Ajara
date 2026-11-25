@@ -21,9 +21,10 @@ from pathlib import Path
 
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+import numpy as np
+from torch.utils.data import ConcatDataset, DataLoader, Subset
 
-from .data import CLASS_NAMES, NUM_CLASSES, PlanDataset, class_pixel_frequencies, enet_class_weights, worker_init_fn
+from .data import CLASS_NAMES, IGNORE_INDEX, NUM_CLASSES, PlanDataset, class_pixel_frequencies, enet_class_weights, worker_init_fn
 from .io_utils import set_seed
 from .metrics import SegmentationMetrics
 from .model import UNetSmall
@@ -63,6 +64,11 @@ def train(args: argparse.Namespace) -> dict:
     out.mkdir(parents=True, exist_ok=True)
 
     train_ds = PlanDataset(args.dataset, "train", augment=True, photometric_aug=args.photometric_aug)
+    if args.mix_dataset:
+        # Ajuste fino: se mezclan tiles del dataset original para no olvidar lo aprendido.
+        mix = PlanDataset(args.mix_dataset, "train", augment=True, photometric_aug=args.photometric_aug)
+        pick = np.random.default_rng(args.seed).choice(len(mix), size=min(args.mix_tiles, len(mix)), replace=False)
+        train_ds = ConcatDataset([train_ds, Subset(mix, pick.tolist())])
     val_ds = PlanDataset(args.dataset, "validation", augment=False)
     gen = torch.Generator().manual_seed(args.seed)
     train_dl = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, generator=gen,
@@ -72,6 +78,9 @@ def train(args: argparse.Namespace) -> dict:
                         pin_memory=device.type == "cuda")
 
     model = UNetSmall(NUM_CLASSES, args.base).to(device)
+    if args.init:
+        state = torch.load(args.init, map_location=device, weights_only=False)
+        model.load_state_dict(state["model"])
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     freqs = class_pixel_frequencies(args.dataset, "train")
     weights = None
@@ -79,7 +88,8 @@ def train(args: argparse.Namespace) -> dict:
     if args.class_weights == "enet":
         weights = enet_class_weights(freqs)
         loss_name = "CrossEntropyLoss ponderada ENet w=1/ln(1.02+f) [EXPERIMENTAL, D-18]"
-    criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device) if weights else None)
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device) if weights else None,
+                                    ignore_index=IGNORE_INDEX)
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
     config = {k: v for k, v in vars(args).items()}
     config.update(device=str(device), amp=amp, torch=str(torch.__version__), cuda=str(torch.version.cuda),
@@ -160,6 +170,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--class-weights", choices=["none", "enet"], default="none",
                     help="none = especificación 0.1; enet = experimento de CE ponderada (D-18 pendiente)")
     ap.add_argument("--photometric-aug", action="store_true", help="Aumentos fotométricos en train (experimental)")
+    ap.add_argument("--init", help="checkpoint inicial (ajuste fino)")
+    ap.add_argument("--mix-dataset", help="dataset extra cuyos tiles de train se mezclan (evita olvidar)")
+    ap.add_argument("--mix-tiles", type=int, default=4000)
     return ap
 
 

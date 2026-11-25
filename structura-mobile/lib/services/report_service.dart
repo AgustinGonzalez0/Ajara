@@ -22,6 +22,7 @@ import 'package:structura_sim/structura_sim.dart';
 import '../app/heat_scale.dart' show heatNoData;
 import '../data/project_models.dart';
 import '../data/project_store.dart';
+import 'takeoff_service.dart';
 
 const reportFileName = 'informe_evaluacion.pdf';
 
@@ -47,6 +48,9 @@ class ReportJob {
   final Map<String, Object?> screening;
   final Map<String, Object?> buildingModel;
   final Uint8List? planImage;
+
+  /// Cómputo métrico (`QuantityTakeoff.toJson`) o null si no se pudo calcular.
+  final Map<String, Object?>? takeoff;
   final ReportFonts fonts;
   final DateTime generatedAt;
   final String appVersion;
@@ -66,6 +70,7 @@ class ReportJob {
     required this.screening,
     required this.buildingModel,
     this.planImage,
+    this.takeoff,
     required this.fonts,
     required this.generatedAt,
     this.appVersion = '0.1.0',
@@ -231,6 +236,38 @@ List<List<String>> provenanceRows(ReportJob job, BuildingModel model) {
       scale == null || !scale.verified
           ? 'sin escala verificada'
           : '${_n(scale.pxPerUnit, 1)} px/m, verificada por el usuario${scale.source.note == null ? '' : ' (${pdfSafe(scale.source.note!)})'}',
+    ],
+  ];
+}
+
+/// Filas del cómputo métrico preliminar para el informe.
+List<List<String>> takeoffRows(Map<String, Object?> t) {
+  double d(Object? v) => (v as num?)?.toDouble() ?? 0;
+  final rooms = (t['rooms'] as List? ?? const []).cast<Map>();
+  final walls = (t['walls'] as List? ?? const []).cast<Map>();
+  final openings = (t['openings'] as List? ?? const []).cast<Map>();
+  final params = (t['params'] as Map?)?.cast<String, Object?>() ?? const {};
+  return [
+    ['Superficie cubierta', '${_n(d(t['covered_area_m2']), 2)} m²${t['contour_closed'] == false ? ' (contorno abierto: rectángulo envolvente)' : ''}'],
+    if (rooms.isNotEmpty) ['Superficie útil', '${_n(d(t['useful_area_m2']), 2)} m² en ${rooms.length} ambientes'],
+    if (rooms.isNotEmpty) ['Ambientes', rooms.map((r) => '${r['name']} ${_n(d(r['area_m2']), 2)} m²').join(' · ')],
+    for (final w in walls)
+      [
+        'Muro ${_n(d(w['thickness_m']) * 100, 0)} cm',
+        '${_n(d(w['length_m']), 2)} m · ${_n(d(w['net_area_m2']), 2)} m² netos · ${_n(d(w['volume_m3']), 2)} m³',
+      ],
+    ['Revoque (2 caras)', '${_n(d(t['plaster_area_m2']), 2)} m²'],
+    if (openings.isNotEmpty)
+      [
+        'Aberturas',
+        openings
+            .map((o) => '${o['count']} ${o['type'] == 'door' ? 'puerta' : 'ventana'}${o['count'] == 1 ? '' : 's'} de ${_n(d(o['width_m']), 2)} m')
+            .join(' · '),
+      ],
+    ['Densidad de muros', 'X ${_n(d(t['wall_density_x_pct']), 2)} % · Y ${_n(d(t['wall_density_y_pct']), 2)} % de la superficie cubierta'],
+    [
+      'Alturas declaradas',
+      'muros ${_n(d(params['wall_height_m']), 2)} m · puertas ${_n(d(params['door_height_m']), 2)} m · ventanas ${_n(d(params['window_height_m']), 2)} m',
     ],
   ];
 }
@@ -691,6 +728,17 @@ Future<Uint8List> buildScreeningPdf(ReportJob job) async {
 
         for (final r in (screening['results'] as List).cast<Map>()) ..._hazardSection(r.cast<String, Object?>(), model, inputs),
 
+        if (job.takeoff != null) ...[
+          _section('Cómputo métrico preliminar'),
+          _kvTable(takeoffRows(job.takeoff!), keyWidth: 120),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Largos por eje de muro y superficies aproximadas desde el plano detectado. Sirve para pre-dimensionar; '
+            'no reemplaza el cómputo sobre el proyecto definitivo.',
+            style: pw.TextStyle(fontSize: 7.5, color: _muted),
+          ),
+        ],
+
         _section('Métodos'),
         for (final m in methodNotes)
           pw.Padding(
@@ -762,6 +810,12 @@ class ReportService {
     final png = await raster.exists() ? await raster.readAsBytes() : null;
     final fonts = await loadFonts();
     final thumb = useIsolate ? await Isolate.run(() => thumbnailForReport(png)) : thumbnailForReport(png);
+    Map<String, Object?>? takeoff;
+    try {
+      takeoff = (await TakeoffService(store).compute(p)).$1.toJson();
+    } on Object {
+      takeoff = null; // sin escala o modelo ilegible: el informe sale sin cómputo
+    }
     final job = ReportJob(
       projectName: p.name,
       projectDescription: p.description,
@@ -777,6 +831,7 @@ class ReportService {
       screening: screening,
       buildingModel: bm,
       planImage: thumb,
+      takeoff: takeoff,
       fonts: fonts,
       generatedAt: DateTime.now(),
       appVersion: appVersion,

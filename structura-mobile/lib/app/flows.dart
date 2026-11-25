@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../services/share_service.dart';
+import '../services/takeoff_service.dart';
 import 'providers.dart';
 import 'router.dart';
 
@@ -30,6 +31,28 @@ Future<void> openEvaluation(BuildContext context, WidgetRef ref, String projectI
   final model = await ref.read(simModelProvider(projectId).future);
   if (!context.mounted) return;
   context.push(model.hasVerifiedScale ? Routes.simulate(projectId) : Routes.calibrate(projectId, thenSimulate: true));
+}
+
+/// Abre el cómputo métrico. Sin escala verificada va primero a calibrar.
+Future<void> openTakeoff(BuildContext context, WidgetRef ref, String projectId) async {
+  final model = await ref.read(simModelProvider(projectId).future);
+  if (!context.mounted) return;
+  context.push(model.hasVerifiedScale ? Routes.takeoff(projectId) : Routes.calibrate(projectId, thenTakeoff: true));
+}
+
+/// Exporta el plano detectado a DXF y abre la hoja de compartir. Devuelve si quedó en metros.
+Future<bool> exportAndShareDxf(WidgetRef ref, String projectId) async {
+  final p = await ref.read(projectStoreProvider).load(projectId);
+  final (path, meters) = await ref.read(takeoffServiceProvider).exportDxf(p);
+  await ref.read(fileSharerProvider).shareFile(
+        path,
+        mimeType: mimeDxf,
+        subject: 'Plano DXF — ${p.name}',
+        text: meters
+            ? 'Plano detectado con STRUCTURA AI, en metros. Revisar antes de usar.'
+            : 'Plano detectado con STRUCTURA AI, en píxeles (sin escala). Revisar antes de usar.',
+      );
+  return meters;
 }
 
 /// Genera el informe PDF de la última evaluación y abre la hoja de compartir.

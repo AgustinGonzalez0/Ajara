@@ -17,6 +17,8 @@ from .io_utils import read_mask, read_rgb
 SIZE = 512
 NUM_CLASSES = 6
 CLASS_NAMES = ["background", "wall", "door", "window", "column", "stairs"]
+# Píxeles sin etiqueta confiable (p. ej. muros CAD dibujados en otra capa): no suman a la loss.
+IGNORE_INDEX = 255
 
 
 def read_split(root: Path, split: str) -> list[str]:
@@ -75,7 +77,7 @@ class PlanDataset(Dataset):
             # Los tiles de structura-data ya miden 512; esto solo cubre datasets externos.
             image = cv2.resize(image, (self.size, self.size), interpolation=cv2.INTER_AREA)
             mask = cv2.resize(mask, (self.size, self.size), interpolation=cv2.INTER_NEAREST)
-        if int(mask.max()) >= self.num_classes:
+        if int(mask[mask != IGNORE_INDEX].max(initial=0)) >= self.num_classes:
             raise ValueError(f"Máscara {name}: IDs fuera del rango 0..{self.num_classes - 1}")
         return image, mask
 

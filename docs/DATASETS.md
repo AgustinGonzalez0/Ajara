@@ -58,6 +58,13 @@ El test mide la generalización a **edificios y estilos no vistos**. **No** mide
 con fotos de planos argentinos reales: para eso hace falta un lote real anotado (pendiente de
 D-17 y de tu decisión sobre anotación manual o asistida).
 
+## Planos CAD reales del usuario (`data/cad_ft_v1`, privado, no versionado)
+
+49 DWG → DXF (LibreDWG) → láminas con máscara desde las capas (`tools.cad_extract`) →
+tiles con píxeles dudosos en 255 y splits por obra (`tools.build_cad_dataset`). Uso: ajuste
+fino del modelo v0.3.0 y prueba en obras no vistas. **No se redistribuye.** Detalle en
+[`EVALUACION_CAD.md`](EVALUACION_CAD.md).
+
 ## Reproducir
 ```powershell
 $R = "$env:USERPROFILE\Desktop\Ajara"

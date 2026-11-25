@@ -20,7 +20,10 @@ class CalibrateScreen extends ConsumerStatefulWidget {
 
   /// Al guardar, sigue directo a la evaluación (sin volver atrás).
   final bool thenSimulate;
-  const CalibrateScreen({super.key, required this.projectId, this.thenSimulate = false});
+
+  /// Después de guardar la escala abre el cómputo métrico.
+  final bool thenTakeoff;
+  const CalibrateScreen({super.key, required this.projectId, this.thenSimulate = false, this.thenTakeoff = false});
   @override
   ConsumerState<CalibrateScreen> createState() => _CalibrateScreenState();
 }
@@ -92,6 +95,8 @@ class _CalibrateScreenState extends ConsumerState<CalibrateScreen> {
       if (!mounted) return;
       if (widget.thenSimulate) {
         context.pushReplacement(Routes.simulate(widget.projectId));
+      } else if (widget.thenTakeoff) {
+        context.pushReplacement(Routes.takeoff(widget.projectId));
       } else {
         context.pop(true);
       }
@@ -289,7 +294,7 @@ class _CalibrateScreenState extends ConsumerState<CalibrateScreen> {
                     key: const Key('calibrate_save'),
                     onPressed: _busy || _pts.length != 2 || _metersValue == null ? null : _save,
                     icon: const Icon(Icons.check_rounded),
-                    label: Text(widget.thenSimulate ? 'Guardar escala y seguir' : 'Guardar escala verificada'),
+                    label: Text(widget.thenSimulate || widget.thenTakeoff ? 'Guardar escala y seguir' : 'Guardar escala verificada'),
                   ),
                 ]),
               ),

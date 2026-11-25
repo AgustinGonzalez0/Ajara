@@ -191,8 +191,7 @@ class _ModelTile extends StatelessWidget {
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   StatusPill(modelStage(d.trainingData, d.isTestModel),
                       color: d.isTestModel ? StructuraColors.warning : StructuraColors.success, icon: Icons.science_outlined),
-                  if (d.valMiou != null)
-                    StatusPill('mIoU ${d.valMiou!.toStringAsFixed(2).replaceAll('.', ',')}', color: StructuraColors.teal),
+                  if (d.headlineMetric != null) StatusPill(d.headlineMetric!, color: StructuraColors.teal),
                   StatusPill(m.hashVerified ? 'SHA-256 OK' : 'SHA-256 NO VERIFICADO',
                       color: m.hashVerified ? StructuraColors.success : StructuraColors.danger),
                   StatusPill('${d.tile}px · overlap ${d.overlap}', color: StructuraColors.textMuted),

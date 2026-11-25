@@ -1,11 +1,11 @@
 {
   "format": "structura-model/1",
   "id": "vision_ai_planos_int8",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "task": "semantic_segmentation",
   "file": "vision_ai_planos_int8.onnx",
-  "sha256": "a79f86a621bbc6f4c9dc0946a6b8103e17757b3f0d7073466128f65aa6c3129f",
-  "bytes": 2010977,
+  "sha256": "c77309f3805632b6cd6cb30feb2be7902fe9723766d63e112bb35f90046db55b",
+  "bytes": 2010978,
   "input": {
     "name": "image",
     "shape": [
@@ -43,25 +43,36 @@
   },
   "opset": 17,
   "training": {
-    "data": "rendered",
-    "epoch": 20,
-    "val_miou": 0.8578483162017047,
-    "production_ready": false
+    "data": "mixed",
+    "epoch": 11,
+    "val_miou": 0.36414398974087775,
+    "production_ready": false,
+    "val_set": "CAD real, 3 láminas de una obra no usada en train (etiquetas parciales)"
   },
   "parity": {
     "samples": 3,
-    "max_abs_logit_diff": 1.531839370727539e-05,
-    "argmax_agreement_min": 0.9999961853027344,
+    "max_abs_logit_diff": 8.821487426757812e-06,
+    "argmax_agreement_min": 1.0,
     "onnxruntime": "1.32.0"
   },
-  "notes": "U-Net Small (base 16). Entrenado con 1 499 plantas reales de Swiss Dwellings (CC BY 4.0) dibujadas por STRUCTURA con estilos variados; CrossEntropy sin pesos (especificación 0.1), 20 épocas. mIoU validación 0,858. Convención de puertas: vano.",
+  "notes": "U-Net Small (base 16). Base: 1 499 plantas de Swiss Dwellings (CC BY 4.0) dibujadas por STRUCTURA. Ajuste fino con 34 láminas de planos CAD reales (privadas) mezcladas con 3 000 tiles Swiss; píxeles dudosos ignorados. Test en obras no vistas: IoU muros 0,70 (antes 0,34). Convención de puertas: vano.",
   "quantization": {
     "type": "int8_static_qdq",
     "calibration_tiles": 200,
     "fp32_bytes": 7774449,
     "tiles": 64,
-    "argmax_agreement_mean": 0.999331533908844,
-    "argmax_agreement_min": 0.997344970703125,
-    "int8_miou": 0.8578069988898718
+    "argmax_agreement_mean": 0.9984722137451172,
+    "argmax_agreement_min": 0.9909896850585938,
+    "int8_miou": 0.7879681027466378
+  },
+  "evaluation": {
+    "cad_unseen_wall_iou": 0.7,
+    "cad_unseen_wall_iou_before": 0.341,
+    "cad_unseen_wall_precision": 0.828,
+    "cad_unseen_wall_recall": 0.82,
+    "cad_unseen_sheets": 10,
+    "swiss_test_miou": 0.876,
+    "swiss_test_plans": 120,
+    "note": "Planos completos con píxeles dudosos ignorados (ver docs/EVALUACION_CAD.md). Medido con el modelo FP32; INT8 coincide en el 99,85 % de los píxeles."
   }
 }

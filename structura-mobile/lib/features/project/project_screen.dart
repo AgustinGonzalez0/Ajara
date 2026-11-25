@@ -49,6 +49,7 @@ class _Hub extends ConsumerStatefulWidget {
 class _HubState extends ConsumerState<_Hub> {
   bool _showPlan = false;
   bool _exporting = false;
+  bool _exportingDxf = false;
 
   ProjectManifest get p => widget.p;
 
@@ -114,6 +115,21 @@ class _HubState extends ConsumerState<_Hub> {
     );
   }
 
+  Future<void> _shareDxf() async {
+    setState(() => _exportingDxf = true);
+    try {
+      final meters = await exportAndShareDxf(ref, p.id);
+      if (!meters && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('El DXF quedó en píxeles: marcá una medida en Cómputo o Evaluación para tenerlo en metros.')));
+      }
+    } on Object catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo exportar el DXF: $e')));
+    } finally {
+      if (mounted) setState(() => _exportingDxf = false);
+    }
+  }
+
   Future<void> _sharePdf() async {
     setState(() => _exporting = true);
     try {
@@ -149,8 +165,11 @@ class _HubState extends ConsumerState<_Hub> {
       p: p,
       report: report,
       exporting: _exporting,
+      exportingDxf: _exportingDxf,
       onEvaluate: () => openEvaluation(context, ref, p.id),
+      onTakeoff: () => openTakeoff(context, ref, p.id),
       onPdf: _sharePdf,
+      onDxf: _shareDxf,
     );
 
     final menu = PopupMenuButton<String>(
@@ -250,7 +269,7 @@ class _HubState extends ConsumerState<_Hub> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg),
                 children: [
-                  SizedBox(height: (height * 0.42).clamp(220.0, 460.0), child: preview),
+                  SizedBox(height: (height * 0.40).clamp(220.0, 460.0), child: preview),
                   const SizedBox(height: Gap.md),
                   info,
                   const SizedBox(height: Gap.md),
@@ -613,6 +632,8 @@ class _InfoStrip extends StatelessWidget {
           Expanded(
             child: Text('Modelo afinado: ${a.refinementSummary.join(' · ')}',
                 key: const Key('refinement_summary'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
           ),
         ]),
@@ -625,7 +646,7 @@ class _InfoStrip extends StatelessWidget {
         if (a != null && a.isTestModel && a.model['engine'] != 'classic') ...[
           const SizedBox(height: Gap.sm),
           const StatusPill(
-            'RESULTADO NO VALIDADO CON PLANOS REALES',
+            'IA EN VALIDACIÓN · REVISÁ LAS DETECCIONES',
             color: StructuraColors.warning,
             icon: Icons.science_outlined,
           ),
@@ -669,9 +690,20 @@ class _Tiles extends StatelessWidget {
   final ProjectManifest p;
   final Map<String, Object?>? report;
   final bool exporting;
+  final bool exportingDxf;
   final VoidCallback onEvaluate;
+  final VoidCallback onTakeoff;
   final VoidCallback onPdf;
-  const _Tiles({required this.p, required this.report, required this.exporting, required this.onEvaluate, required this.onPdf});
+  final VoidCallback onDxf;
+  const _Tiles(
+      {required this.p,
+      required this.report,
+      required this.exporting,
+      required this.exportingDxf,
+      required this.onEvaluate,
+      required this.onTakeoff,
+      required this.onPdf,
+      required this.onDxf});
 
   @override
   Widget build(BuildContext context) {
@@ -682,14 +714,14 @@ class _Tiles extends StatelessWidget {
         key: const Key('tile_3d'),
         icon: Icons.view_in_ar_rounded,
         title: 'Modelo 3D',
-        subtitle: ready ? 'Ver y compartir GLB' : 'Se genera del plano',
+        subtitle: ready ? 'Ver · GLB' : 'Se genera del plano',
         onTap: ready ? () => context.push(Routes.model3d(p.id)) : null,
       ),
       QuickTile(
         key: const Key('tile_plan'),
         icon: Icons.layers_outlined,
         title: 'Plano',
-        subtitle: ready ? 'Detecciones en capas' : (p.activePlan == null ? 'Sin plano' : 'Ver plano'),
+        subtitle: ready ? 'Detecciones' : (p.activePlan == null ? 'Sin plano' : 'Ver plano'),
         accent: StructuraColors.teal,
         onTap: p.activePlan == null ? null : () => context.push(Routes.editor(p.id)),
       ),
@@ -702,10 +734,27 @@ class _Tiles extends StatelessWidget {
         onTap: ready ? onEvaluate : null,
       ),
       QuickTile(
+        key: const Key('tile_takeoff'),
+        icon: Icons.square_foot_rounded,
+        title: 'Cómputo',
+        subtitle: ready ? 'm² y ambientes' : 'Después del modelo',
+        accent: StructuraColors.success,
+        onTap: ready ? onTakeoff : null,
+      ),
+      QuickTile(
+        key: const Key('tile_dxf'),
+        icon: Icons.architecture_rounded,
+        title: 'Plano DXF',
+        subtitle: ready ? 'Para AutoCAD' : 'Después del modelo',
+        accent: StructuraColors.stairs,
+        busy: exportingDxf,
+        onTap: ready ? onDxf : null,
+      ),
+      QuickTile(
         key: const Key('tile_pdf'),
         icon: Icons.picture_as_pdf_outlined,
         title: 'Informe PDF',
-        subtitle: r == null ? 'Después de evaluar' : 'Generar y compartir',
+        subtitle: r == null ? 'Después de evaluar' : 'Compartir',
         accent: StructuraColors.warning,
         busy: exporting,
         onTap: r == null ? null : onPdf,
@@ -714,11 +763,30 @@ class _Tiles extends StatelessWidget {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     return LayoutBuilder(
       builder: (context, c) {
-        final w = (c.maxWidth - Gap.sm) / 2;
+        // 6 accesos en 3 columnas compactas: todo el panel entra sin scroll en un teléfono.
+        final cols = c.maxWidth >= 560 ? 2 : 3;
+        final w = (c.maxWidth - Gap.sm * (cols - 1)) / cols;
         return Wrap(
           spacing: Gap.sm,
           runSpacing: Gap.sm,
-          children: [for (final tile in tiles) SizedBox(width: w, height: 78 * scale, child: tile)],
+          children: [
+            for (final tile in tiles)
+              SizedBox(
+                width: w,
+                height: (cols == 3 ? 92 : 78) * scale,
+                child: cols == 3
+                    ? QuickTile(
+                        key: tile.key,
+                        icon: tile.icon,
+                        title: tile.title,
+                        subtitle: tile.subtitle,
+                        accent: tile.accent,
+                        busy: tile.busy,
+                        onTap: tile.onTap,
+                        compact: true)
+                    : tile,
+              ),
+          ],
         );
       },
     );
@@ -727,8 +795,15 @@ class _Tiles extends StatelessWidget {
   static const _short = {'ok': 'OK', 'attention': 'revisar', 'critical': 'supera', 'notApplicable': '—'};
   static const _names = {'seismic': 'Sismo', 'tsunami': 'Tsunami', 'wind': 'Viento'};
 
-  String _evalSummary(Map<String, Object?> r) =>
-      [for (final h in (r['results'] as List).cast<Map>()) '${_names[h['hazard']]} ${_short[h['overall']]}'].join(' · ');
+  /// Lo más importante primero (entra en una línea del acceso compacto): el peligro peor.
+  String _evalSummary(Map<String, Object?> r) {
+    final hs = (r['results'] as List).cast<Map>().toList();
+    for (final level in ['critical', 'attention']) {
+      final bad = hs.where((h) => h['overall'] == level).map((h) => _names[h['hazard']]).toList();
+      if (bad.isNotEmpty) return '${bad.join(' y ')} ${_short[level]}';
+    }
+    return '${hs.map((h) => _names[h['hazard']]).join(' · ')} OK';
+  }
 
   Color _worstColor(Map<String, Object?> r) {
     final s = (r['results'] as List).cast<Map>().map((h) => h['overall']).toSet();

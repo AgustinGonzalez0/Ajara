@@ -9,10 +9,14 @@ viento, todo en el celular y sin conexión.**
   100 ms en cualquier celular. Es determinista, no descarga nada y no depende de tokens ni de APIs.
 - 🧠 **Vision AI** (se elige en Configuración): U-Net propia de 1,9 MB (INT8) con ONNX Runtime en el
   dispositivo, entrenada con 1 499 plantas reales (Swiss Dwellings, CC BY 4.0) dibujadas con estilos
-  variados: mIoU 0,89 en test frente a 0,25 del motor clásico. **En validación**: falta medirla con
-  fotos de planos reales. Las simulaciones no usan IA: son fórmulas deterministas.
+  variados y ajustada con planos CAD reales: en obras no vistas, IoU de muros 0,70 (antes 0,34).
+  **En validación**: falta medirla con fotos de planos impresos. Las simulaciones no usan IA: son fórmulas deterministas.
 - 🧊 **Modelo 3D detallado** navegable (órbita, zoom, capas) y exportado a GLB: cierra esquinas,
   alinea muros, encaja aberturas y arma el piso solo dentro de los ambientes.
+- 📐 **Cómputo métrico preliminar**: superficie cubierta y por ambiente, muros por espesor
+  (m, m², m³) descontando aberturas, revoques, aberturas por medida y densidad de muros.
+  Planilla CSV para Excel y sección en el informe PDF.
+- 📏 **Plano DXF para AutoCAD** (R12, en metros, por capas) en un toque.
 - 🌊 **Evaluación preliminar**: indicadores demanda/capacidad, muros coloreados en 3D,
   vaivén sísmico y agua de tsunami animados. **No reemplaza el cálculo estructural ni declara
   que una estructura sea segura** (ver [`docs/SIMULACION.md`](docs/SIMULACION.md)).
@@ -33,14 +37,14 @@ Presentar el proyecto: [`docs/GUIA_DEMO.md`](docs/GUIA_DEMO.md)
 ## Módulos
 | Carpeta | Qué es | Tests |
 |---|---|---|
-| `structura-data` | Datasets (Python): LabelMe, planos vectoriales renderizados, DXF de AutoCAD, tiles, validación, splits | 93 |
-| `structura-core` | Entrenamiento, evaluación, benchmark, exportación ONNX y **cuantización INT8** (PyTorch + CUDA) | 22 |
+| `structura-data` | Datasets (Python): LabelMe, planos vectoriales renderizados, DXF de AutoCAD, tiles, validación, splits | 97 |
+| `structura-core` | Entrenamiento (incl. ajuste fino con píxeles ignorados), benchmark, ONNX y **INT8** (PyTorch + CUDA) | 23 |
 | `packages/structura_model` | Building Model: procedencia, confianza, desconocidos explícitos | 5 |
 | `packages/structura_vision` | **Visión clásica sin IA**: rectificación de fotos, binarización, detección | 6 |
-| `packages/structura_geometry` | Geometry Engine: vectorización, **afinado del 3D**, malla, piso interior, GLB | 19 |
+| `packages/structura_geometry` | Geometry Engine: vectorización, **afinado del 3D**, malla, ambientes, **cómputo**, **DXF**, GLB | 31 |
 | `packages/structura_pipeline` | Integración IA: tiles, TTA, etapas, progreso, cancelación | 10 |
 | `packages/structura_sim` | **Evaluación preliminar** de sismo, tsunami y viento | 9 |
-| `structura-mobile` | App Android (Flutter) | 34, más 1 E2E en Android |
+| `structura-mobile` | App Android (Flutter) | 36, más 1 E2E en Android |
 
 ## Celulares compatibles
 - Android 7.0 o superior (API 24), arm64-v8a y armeabi-v7a.

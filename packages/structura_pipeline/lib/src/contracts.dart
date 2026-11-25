@@ -65,10 +65,14 @@ class ModelDescriptor {
   final int tile;
   final int overlap;
 
-  /// `real`, `rendered` (geometría real dibujada por STRUCTURA), `synthetic` o `untrained`.
+  /// `real`, `rendered` (geometría real dibujada por STRUCTURA), `mixed` (lo anterior más planos CAD
+  /// reales rasterizados), `synthetic` o `untrained`.
   final String trainingData;
   final bool productionReady;
   final double? valMiou;
+
+  /// Pruebas sobre planos completos (`evaluation` del descriptor), si las hay.
+  final Map<String, Object?> evaluation;
   final String notes;
 
   const ModelDescriptor({
@@ -84,6 +88,7 @@ class ModelDescriptor {
     required this.trainingData,
     required this.productionReady,
     this.valMiou,
+    this.evaluation = const {},
     this.notes = '',
   });
 
@@ -113,6 +118,7 @@ class ModelDescriptor {
       // Solo se acepta "apto" si además se entrenó con datos reales.
       productionReady: training['production_ready'] == true && trainingData == 'real',
       valMiou: (training['val_miou'] as num?)?.toDouble(),
+      evaluation: (j['evaluation'] as Map?)?.cast<String, Object?>() ?? const {},
       notes: j['notes'] as String? ?? '',
     );
   }
@@ -122,10 +128,21 @@ class ModelDescriptor {
   /// true salvo que el modelo esté entrenado con datos reales y marcado apto.
   bool get isTestModel => !productionReady;
 
+  /// Métrica principal para la UI: la prueba en planos CAD reales no vistos si existe;
+  /// si no, el mIoU de validación declarado.
+  String? get headlineMetric {
+    String f(num v) => v.toStringAsFixed(2).replaceAll('.', ',');
+    final w = evaluation['cad_unseen_wall_iou'] as num?;
+    if (w != null) return 'Muros IoU ${f(w)} en planos reales';
+    final v = valMiou;
+    return v == null ? null : 'mIoU ${f(v)}';
+  }
+
   /// Etiqueta de confiabilidad para la UI.
   String get trustLabel => switch (trainingData) {
         'real' => productionReady ? 'Modelo entrenado con datos reales' : 'Modelo real en evaluación',
         'rendered' => 'Entrenado con plantas reales dibujadas por STRUCTURA (Swiss Dwellings); falta validar con fotos de planos reales',
+        'mixed' => 'Entrenado con plantas dibujadas por STRUCTURA y planos CAD reales; falta validar con fotos de planos reales',
         'synthetic' => 'Modelo de prueba — entrenado solo con planos sintéticos',
         'untrained' => 'Modelo sin entrenar — solo para pruebas técnicas',
         _ => 'Procedencia de entrenamiento desconocida',

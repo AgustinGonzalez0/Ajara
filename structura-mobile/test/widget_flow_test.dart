@@ -212,6 +212,64 @@ void main() {
     expect(find.text('Compartir informe PDF'), findsOneWidget);
   });
 
+  testWidgets('cómputo métrico y DXF: tile → escala → cómputo → planilla y DXF compartidos', (t) async {
+    phone(t);
+    final root = tempDir();
+    final png = File('${root.path}/plano.png')..writeAsBytesSync(realisticPlanPng());
+    final h = Harness(root);
+    await t.pumpWidget(await h.app(onboardingDone: true, pick: png));
+    await settle(t, rounds: 20);
+    await t.tap(find.byKey(const Key('quick_file')));
+    await settleUntil(t, find.byKey(const Key('mini_3d')));
+
+    // Sin escala, el cómputo pide primero la medida y después sigue solo.
+    await t.ensureVisible(find.byKey(const Key('tile_takeoff')));
+    await t.pump();
+    await t.tap(find.byKey(const Key('tile_takeoff')));
+    await settle(t, rounds: 20);
+    final r = t.getRect(find.byKey(const Key('calibrate_viewer')));
+    await t.tapAt(Offset(r.left + r.width * 0.2, r.center.dy));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tapAt(Offset(r.left + r.width * 0.8, r.center.dy));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.enterText(find.byKey(const Key('calibrate_meters')), '9,5');
+    await t.pump();
+    await t.tap(find.byKey(const Key('calibrate_save')));
+    await settleUntil(t, find.byKey(const Key('takeoff_covered')));
+    expect(find.text('Cómputo métrico'), findsOneWidget);
+    expect(find.textContaining('Muro '), findsWidgets);
+    expect(find.text('2,60 m'), findsOneWidget);
+
+    // La altura declarada se ajusta con ± y recalcula.
+    await t.tap(find.byKey(const Key('takeoff_height_plus')));
+    await settleUntil(t, find.text('2,65 m'));
+    expect(find.text('2,65 m'), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('takeoff_csv')));
+    await settle(t, rounds: 6);
+    expect(h.sharer.shared.last.$2, 'text/csv');
+    final csv = await t.runAsync(() => File(h.sharer.shared.last.$1).readAsString());
+    expect(csv, contains('Superficie cubierta;'));
+    expect(csv, contains('muros 2,65 m'));
+
+    await t.tap(find.byKey(const Key('takeoff_dxf')));
+    await settle(t, rounds: 6);
+    expect(h.sharer.shared.last.$2, 'image/vnd.dxf');
+    expect(h.sharer.shared.last.$1, endsWith('.dxf'));
+    final dxf = await t.runAsync(() => File(h.sharer.shared.last.$1).readAsString());
+    expect(dxf, startsWith('0\r\nSECTION'));
+    expect(dxf, contains('unidades: metros'));
+
+    // También desde el panel, en un toque.
+    await t.pageBack();
+    await settle(t, rounds: 10);
+    await t.ensureVisible(find.byKey(const Key('tile_dxf')));
+    await t.pump();
+    await t.tap(find.byKey(const Key('tile_dxf')));
+    await settle(t, rounds: 6);
+    expect(h.sharer.shared.length, 3);
+  });
+
   testWidgets('proyecto analizado: editor 2D y modelo 3D desde disco (sin re-procesar)', (t) async {
     final root = tempDir();
     final h = Harness(root);
@@ -258,7 +316,7 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     await t.tap(find.text('Analizado'));
     await settle(t);
-    expect(find.text('RESULTADO NO VALIDADO CON PLANOS REALES'), findsOneWidget);
+    expect(find.text('IA EN VALIDACIÓN · REVISÁ LAS DETECCIONES'), findsOneWidget);
     expect(find.byKey(const Key('mini_3d')), findsOneWidget);
 
     await t.tap(find.byKey(const Key('tile_plan')));

@@ -256,20 +256,53 @@ class MeshBuilder {
   }
 }
 
+/// Ambiente cerrado detectado en planta (región delimitada por muros, columnas y aberturas).
+class PlanRoom {
+  /// Número de lectura (1 = arriba a la izquierda).
+  final int number;
+
+  /// Superficie hasta la cara de los muros, en px² del plano (aproximada a la grilla).
+  final double areaPx2;
+
+  /// Punto interior para rotular el ambiente.
+  final Point2 label;
+  final Rect2 bounds;
+  const PlanRoom({required this.number, required this.areaPx2, required this.label, required this.bounds});
+
+  double areaM2(double pxPerM) => areaPx2 / (pxPerM * pxPerM);
+}
+
+/// Resultado del análisis de la planta: piso (para el 3D) y ambientes.
+class FloorAnalysis {
+  final List<Rect2> floor;
+  final List<PlanRoom> rooms;
+
+  /// false si el contorno no cierra: el piso es el rectángulo envolvente y no hay ambientes.
+  final bool closed;
+  const FloorAnalysis(this.floor, this.rooms, {required this.closed});
+}
+
+/// Piso solo dentro del edificio (ver [analyzeFloor]).
+List<Rect2> floorRects(BuildingModel model) => analyzeFloor(model).floor;
+
 /// Piso solo dentro del edificio: se rasteriza la planta en celdas de medio espesor de
 /// muro, se rellena desde el borde el exterior (muros, columnas y aberturas hacen de
 /// barrera) y el resto se cubre con rectángulos. Si el contorno no cierra (planta
 /// incompleta), el relleno se escapa y se usa el rectángulo envolvente.
-List<Rect2> floorRects(BuildingModel model) {
+///
+/// Cada región interior conectada es un ambiente: las aberturas también son barrera, así
+/// que dos locales unidos por una puerta quedan separados.
+FloorAnalysis analyzeFloor(BuildingModel model) {
   final els = model.allElements.where((e) => e is Wall || e is ColumnElement || e is Opening).toList();
   final all = model.allElements.map((e) => e.bounds).toList();
-  if (all.isEmpty) return const [];
+  if (all.isEmpty) return const FloorAnalysis([], [], closed: false);
   final l = all.map((r) => r.left).reduce(math.min), t = all.map((r) => r.top).reduce(math.min);
   final rr = all.map((r) => r.right).reduce(math.max), bb = all.map((r) => r.bottom).reduce(math.max);
-  final bbox = [Rect2(l, t, rr, bb)];
+  final bbox = FloorAnalysis([Rect2(l, t, rr, bb)], const [], closed: false);
   final ts = model.allElements.whereType<Wall>().map((w) => w.thicknessPx).toList()..sort();
   if (ts.isEmpty || els.isEmpty) return bbox;
-  final cell = math.max(1.0, ts[ts.length ~/ 2] / 2);
+  final tMed = ts[ts.length ~/ 2];
+  final cell = math.max(1.0, tMed / 2);
   const pad = 3; // margen libre alrededor: el relleno del exterior siempre puede rodear el dibujo
   final gw = ((rr - l) / cell).ceil() + 2 * pad + 1, gh = ((bb - t) / cell).ceil() + 2 * pad + 1;
   if (gw * gh > 4000000) return bbox;
@@ -316,6 +349,7 @@ List<Rect2> floorRects(BuildingModel model) {
   }
   // Con menos del 25 % de la caja como interior, la planta no cierra: rectángulo envolvente.
   if (inside * cell * cell < 0.25 * (rr - l) * (bb - t)) return bbox;
+  final rooms = _rooms(gw, gh, block, grown, outside, cell, l - pad * cell, t - pad * cell, 16 * tMed * tMed);
   // Piso = interior + muros + celdas engrosadas que tocan el interior (el anillo exterior no).
   final floor = Uint8List(gw * gh);
   for (var y = 0; y < gh; y++) {
@@ -365,5 +399,95 @@ List<Rect2> floorRects(BuildingModel model) {
       open.putIfAbsent(run, () => y);
     }
   }
-  return rects;
+  return FloorAnalysis(rects, rooms, closed: true);
+}
+
+/// Componentes conexas del interior. Las celdas del anillo engrosado (entre la cara del
+/// muro y el interior) se suman al ambiente vecino para medir hasta la cara del muro.
+List<PlanRoom> _rooms(int gw, int gh, Uint8List block, Uint8List grown, Uint8List outside, double cell, double ox,
+    double oy, double minAreaPx2) {
+  final label = Int32List(gw * gh);
+  final sizes = <int>[0];
+  final sx = <double>[0], sy = <double>[0];
+  final minX = <int>[0], minY = <int>[0], maxX = <int>[0], maxY = <int>[0];
+  for (var i = 0; i < label.length; i++) {
+    if (label[i] != 0 || outside[i] == 1 || grown[i] == 1) continue;
+    final id = sizes.length;
+    sizes.add(0);
+    sx.add(0);
+    sy.add(0);
+    minX.add(gw);
+    minY.add(gh);
+    maxX.add(0);
+    maxY.add(0);
+    final stack = <int>[i];
+    label[i] = id;
+    while (stack.isNotEmpty) {
+      final j = stack.removeLast();
+      final x = j % gw, y = j ~/ gw;
+      sizes[id]++;
+      sx[id] += x;
+      sy[id] += y;
+      if (x < minX[id]) minX[id] = x;
+      if (y < minY[id]) minY[id] = y;
+      if (x > maxX[id]) maxX[id] = x;
+      if (y > maxY[id]) maxY[id] = y;
+      for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
+        if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+        final k = ny * gw + nx;
+        if (label[k] != 0 || outside[k] == 1 || grown[k] == 1) continue;
+        label[k] = id;
+        stack.add(k);
+      }
+    }
+  }
+  // Anillo entre la cara del muro y el interior.
+  final extra = List<int>.filled(sizes.length, 0);
+  for (var i = 0; i < label.length; i++) {
+    if (grown[i] == 0 || block[i] == 1 || outside[i] == 1) continue;
+    final x = i % gw, y = i ~/ gw;
+    for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
+      if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+      final id = label[ny * gw + nx];
+      if (id > 0) {
+        extra[id]++;
+        break;
+      }
+    }
+  }
+  final out = <PlanRoom>[];
+  for (var id = 1; id < sizes.length; id++) {
+    final area = (sizes[id] + extra[id]) * cell * cell;
+    if (area < minAreaPx2) continue;
+    // Rótulo: la celda del ambiente más cercana al centroide (sirve también en forma de L).
+    final cxg = sx[id] / sizes[id], cyg = sy[id] / sizes[id];
+    var best = -1;
+    var bestD = double.infinity;
+    for (var y = minY[id]; y <= maxY[id]; y++) {
+      for (var x = minX[id]; x <= maxX[id]; x++) {
+        if (label[y * gw + x] != id) continue;
+        final d = (x - cxg) * (x - cxg) + (y - cyg) * (y - cyg);
+        if (d < bestD) {
+          bestD = d;
+          best = y * gw + x;
+        }
+      }
+    }
+    out.add(PlanRoom(
+      number: 0,
+      areaPx2: area,
+      label: Point2(ox + (best % gw + 0.5) * cell, oy + (best ~/ gw + 0.5) * cell),
+      bounds: Rect2(ox + (minX[id] - 1) * cell, oy + (minY[id] - 1) * cell, ox + (maxX[id] + 2) * cell,
+          oy + (maxY[id] + 2) * cell),
+    ));
+  }
+  out.sort((a, b) {
+    final dy = a.bounds.top - b.bounds.top;
+    if (dy.abs() > 4 * cell) return dy.sign.toInt();
+    return a.bounds.left.compareTo(b.bounds.left);
+  });
+  return [
+    for (var i = 0; i < out.length; i++)
+      PlanRoom(number: i + 1, areaPx2: out[i].areaPx2, label: out[i].label, bounds: out[i].bounds),
+  ];
 }

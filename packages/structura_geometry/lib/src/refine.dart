@@ -38,6 +38,9 @@ class RefineReport {
   int fragmentsRemoved = 0;
   int slicesReoriented = 0;
 
+  /// Extremos de muro prolongados según la segmentación (ver `evidence.dart`).
+  int wallsExtended = 0;
+
   int get total =>
       thicknessUnified +
       wallsAligned +
@@ -46,10 +49,12 @@ class RefineReport {
       openingsFitted +
       openingsHosted +
       fragmentsRemoved +
-      slicesReoriented;
+      slicesReoriented +
+      wallsExtended;
 
   /// Frases para la UI ("6 esquinas cerradas", ...), solo las que ocurrieron.
   List<String> summary() => [
+        if (wallsExtended > 0) '$wallsExtended ${wallsExtended == 1 ? 'muro prolongado' : 'muros prolongados'} según la imagen',
         if (junctionsClosed > 0) '$junctionsClosed ${junctionsClosed == 1 ? 'esquina cerrada' : 'esquinas y uniones cerradas'}',
         if (wallsAligned > 0) '$wallsAligned ${wallsAligned == 1 ? 'muro alineado' : 'muros alineados'}',
         if (segmentsJoined > 0) '$segmentsJoined ${segmentsJoined == 1 ? 'tramo unido' : 'tramos unidos'}',
@@ -69,8 +74,24 @@ class RefineReport {
         'openings_hosted': openingsHosted,
         'fragments_removed': fragmentsRemoved,
         'slices_reoriented': slicesReoriented,
+        'walls_extended': wallsExtended,
         'summary': summary(),
       };
+}
+
+extension RefineReportMerge on RefineReport {
+  /// Suma los conteos de una segunda pasada.
+  void add(RefineReport o) {
+    thicknessUnified += o.thicknessUnified;
+    wallsAligned += o.wallsAligned;
+    segmentsJoined += o.segmentsJoined;
+    junctionsClosed += o.junctionsClosed;
+    openingsFitted += o.openingsFitted;
+    openingsHosted += o.openingsHosted;
+    fragmentsRemoved += o.fragmentsRemoved;
+    slicesReoriented += o.slicesReoriented;
+    wallsExtended += o.wallsExtended;
+  }
 }
 
 class RefineResult {

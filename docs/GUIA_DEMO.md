@@ -1,6 +1,6 @@
 # Guía para presentar STRUCTURA AI a un maestro mayor de obra
 
-Presentación (14 diapositivas, con notas para el orador):
+Presentación (15 diapositivas, con notas para el orador):
 https://claude.ai/artifact/7z9EE3JYxSP8DwZA281ehq — es privada hasta que se comparta desde
 el menú **Compartir** de la página. Se puede exportar a PDF o PowerPoint desde ese mismo menú.
 
@@ -24,7 +24,7 @@ Material en `Ajara\entrega\` (no se versiona):
    trazo nítido, sin muchas cotas encima).
 5. Cargar el celular. No hace falta internet: la app no lo usa.
 
-## Guion (unos 15 minutos)
+## Guion (unos 16 minutos)
 
 | Min | Diapositivas | Qué hacer |
 |---|---|---|
@@ -32,8 +32,9 @@ Material en `Ajara\entrega\` (no se versiona):
 | 2–7 | 4 (demo) | **En vivo**: *Fotografiar plano* → ajustar el recorte → *Generar modelo 3D* → girar el 3D con el dedo → *Evaluar* → marcar una medida conocida (por ejemplo un muro de 4,50 m) → elegir zona sísmica y suelo → ver resultados → abrir el 3D de sismo y de tsunami → *Compartir informe PDF*. |
 | 7–9 | 5–6 | Explicar que la IA **solo lee** el plano y que los números salen de fórmulas. Mostrar el texto "Modelo afinado: …" en el panel del proyecto. |
 | 9–11 | 7–9 | Métodos (INPRES-CIRSOC 103, FEMA P-646, q = 0,613·V²), el semáforo y el informe impreso. |
-| 11–13 | 10–12 | Números medidos y **límites**, dichos por nosotros antes de que pregunten. Privacidad. |
-| 13–15 | 13–14 | Pedirle su opinión: datos de la evaluación, qué le falta al informe, planos reales para probar. |
+| 11–12 | 10 | **En vivo**: panel → *Cómputo* (m² por ambiente, muros por espesor, revoques; subir la altura con +) → *Compartir planilla*. Volver y tocar *Plano DXF*: es lo que más le sirve a un MMO para seguir en AutoCAD. |
+| 12–14 | 11–13 | Números medidos y **límites**, dichos por nosotros antes de que pregunten. Privacidad. |
+| 14–16 | 14–15 | Pedirle su opinión: datos de la evaluación, qué le falta al informe, planos reales para probar. |
 
 Si la lectura sale mal (muro de más, puerta como ventana): abrir **Plano**, tocar el elemento y
 borrarlo o cambiarle el tipo. Mostrar esto suma: se ve que el profesional tiene el control.
@@ -46,8 +47,13 @@ borrarlo o cambiarle el tipo. Mostrar esto suma: se ve que el profesional tiene 
   supuesto y cada método. Con los mismos datos da siempre el mismo resultado.
 - **¿La IA puede equivocarse?** Sí, sobre todo con fotos inclinadas o planos muy cargados. Por eso
   se ve lo que detectó y se corrige a mano antes de evaluar.
-- **¿Qué tan precisa es?** 0,89 de mIoU (1 sería perfecto) en 120 planos de prueba generados por
-  computadora, contra 0,25 sin IA. Falta medirla con planos reales; ese es el próximo paso.
+- **¿Qué tan precisa es?** En planos CAD reales de obras que nunca vio, acierta el 83 % de lo que
+  marca como muro y encuentra el 82 % de los muros (IoU 0,70; antes del ajuste, 0,34). En planos
+  generados por computadora, 0,89 de mIoU. Falta medirla con **fotos** de planos impresos.
+- **¿El cómputo sirve para presupuestar?** Para pre-dimensionar: largos por eje, alturas
+  declaradas y superficies aproximadas. El cómputo definitivo se hace sobre el proyecto.
+- **¿El DXF queda listo?** Queda en metros y por capas (muros, puertas, ventanas, columnas,
+  escaleras, ambientes). Es la detección automática: hay que revisarlo antes de usarlo.
 - **¿Qué datos pide?** Una medida conocida del plano, zona sísmica, tipo de suelo y datos del
   edificio (pisos, altura de piso y material de los muros; hay modelos típicos para elegir). Para tsunami, altura de
   inundación y dirección; para viento, velocidad básica y dirección.

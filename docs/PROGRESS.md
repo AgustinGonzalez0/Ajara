@@ -41,10 +41,25 @@ Tarda unos segundos más y deja un 3D más limpio:
   alineados · 20 tramos unidos · 7 espesores unificados · 2 aberturas encajadas ·
   17 piezas reorientadas" → 6 muros limpios.
 
+### Cómputo métrico y DXF (nuevo)
+- **Cómputo** (acceso en el panel): superficie cubierta, superficie útil y **ambientes con m²**
+  (A1, A2… rotulados sobre la planta), muros por espesor (m, m² netos descontando aberturas,
+  m³), revoque 2 caras, contrapiso, aberturas por medida, columnas, escaleras y **densidad de
+  muros** por dirección. Altura de muros declarable con ±. Planilla **CSV** para Excel en
+  español (`;` y coma decimal). También va en el informe PDF.
+- **Plano DXF** (un toque): AutoCAD R12 en metros con capas MUROS, MUROS-RELLENO, PUERTAS
+  (hoja y arco), VENTANAS, COLUMNAS, ESCALERAS, AMBIENTES y ROTULO. Verificado con ezdxf
+  (0 errores). CLI: `packages/structura_geometry/tool/plan_to_dxf.dart`.
+- Panel en 3 columnas compactas: los 6 accesos entran sin scroll.
+- **Muros prolongados según la imagen** (`evidence.dart`): si la segmentación muestra que un muro
+  sigue, se prolonga por su eje (se frena en puertas, ventanas y escaleras) y se vuelve a afinar.
+  En la foto de prueba con la IA v0.3 cerró 3 huecos y los 2 ambientes (antes salía 1 solo).
+
 ### Motores
 1. **Clásico sin IA (por defecto)**: ~100 ms. Muy bueno con muros macizos negros;
    **flojo con muros rayados, en contorno o grises** (medido abajo).
-2. **Vision AI**: ver "Modelo entrenado con plantas reales".
+2. **Vision AI v0.3.0**: ajustada con planos CAD reales. En obras no vistas, IoU de muros
+   0,34 → 0,70 (precisión 0,83, recall 0,82). Ver [`EVALUACION_CAD.md`](EVALUACION_CAD.md).
 
 ### Privacidad
 Release sin permiso de internet y sin telemetría de ONNX Runtime (verificado).
@@ -61,26 +76,26 @@ Release sin permiso de internet y sin telemetría de ONNX Runtime (verificado).
 ## Tests (último run: todos OK)
 | Suite | Comando | Resultado |
 |---|---|---|
-| structura-data | `python -m unittest discover -s tests -t .` | 93 OK |
-| structura-core | idem | 22 OK |
-| structura_model / vision / geometry / pipeline / sim | `dart test` | 5 / 6 / 19 / 10 / 9 OK |
-| structura-mobile | `flutter test` | 34 OK (flujo rápido, cancelación, escala, evaluación, PDF, 3D, corrección) |
+| structura-data | `python -m unittest discover -s tests -t .` | 97 OK |
+| structura-core | idem | 23 OK |
+| structura_model / vision / geometry / pipeline / sim | `dart test` | 5 / 6 / 31 / 10 / 9 OK |
+| structura-mobile | `flutter test` | 36 OK (flujo rápido, cancelación, escala, evaluación, PDF, 3D, corrección, cómputo y DXF) |
 | Release | `powershell -File tool\verify_release.ps1` | sin red · sin telemetría · clases ONNX conservadas |
 
-**Total: 198 tests automatizados.**
+**Total: 217 tests automatizados.**
 
 ## Mediciones
 | Medida | Valor | Dónde |
 |---|---|---|
 | Detección clásica (foto 1007×797) | 106 ms | emulador x86_64, release |
-| APK release arm64 / armeabi-v7a | 57,6 MB / 45,7 MB | — |
+| APK release arm64 / armeabi-v7a | 57,6 MB / 45,8 MB | — |
 | Lectura con IA en modo detallado (4 pasadas) | ≈5,2 s | emulador x86_64, release |
 
 > Los tiempos del emulador **no representan** un teléfono ARM real.
 
 ## Limitaciones conocidas (honestas)
-- El modelo se entrenó con plantas **dibujadas por STRUCTURA** a partir de geometría real
-  suiza. Falta validarlo con **fotos de planos argentinos reales**.
+- La IA se midió en planos CAD reales rasterizados (`EVALUACION_CAD.md`); falta medirla con
+  **fotos** de planos impresos.
 - Convención de puertas usada en el dataset: **vano** (D-17 sigue pendiente; regenerar con la
   otra convención lleva minutos).
 - Evaluación: métodos simplificados. No reemplaza el cálculo ni la verificación normativa.
@@ -89,9 +104,8 @@ Release sin permiso de internet y sin telemetría de ONNX Runtime (verificado).
 
 ## Planos CAD reales (privados, no se versionan)
 49 DWG del usuario → DXF (LibreDWG) → `data/cad_soto`: **55 plantas (47 únicas)**, 4 archivos
-con error de lectura. Etiquetas por capas (Muros, Ventanas, Puertas, …): son **débiles** (faltan
-capas en varios archivos), así que sirven primero como **prueba** (medir recall de muros) y solo
-después para ajustar con píxeles ignorados.
+con error de lectura. Etiquetas débiles (faltan capas) → píxeles dudosos ignorados; splits por
+obra; ajuste fino → modelo v0.3.0. Detalle y cifras: [`EVALUACION_CAD.md`](EVALUACION_CAD.md).
 
 ## Presentación
 - Diapositivas (14, con notas): https://claude.ai/artifact/7z9EE3JYxSP8DwZA281ehq
@@ -103,7 +117,8 @@ después para ajustar con píxeles ignorados.
    del experimento), D-29 (ResPlan), motor por defecto (clásico o IA), anotación de un lote
    real (manual o asistida).
 2. Probar en el S26 Ultra y en un celular de gama baja: tiempos, memoria, temperatura.
-3. Medir la IA en las plantas CAD reales y en planos de Wikimedia Commons (PD/CC0/CC BY).
+3. Medir la IA en fotos de planos impresos (y en Wikimedia Commons, PD/CC0/CC BY).
+   Más obras distintas para el ajuste fino (hoy la mayoría de train es un mismo edificio).
 4. Lote de fotos reales anotadas para medir el desempeño verdadero.
 
 ## Para continuar
