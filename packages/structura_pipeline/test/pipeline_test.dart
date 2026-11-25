@@ -63,6 +63,19 @@ class OracleInferencer implements TileInferencer {
 
 void main() {
   group('tiling', () {
+    test('TTA (4 espejos): mismo resultado que sin TTA con un modelo equivariante, 4× inferencias', () async {
+      for (final (w, h) in [(300, 200), (700, 513), (1100, 900)]) {
+        final (raster, labels) = codedRaster(w, h, w * 3 + h);
+        final plain = OracleInferencer(descriptor());
+        final tta = OracleInferencer(descriptor());
+        final a = await const TiledSegmenter().segment(raster, plain);
+        final b = await const TiledSegmenter(tta: true).segment(raster, tta);
+        expect(b.labels, labels, reason: '$w x $h');
+        expect(b.labels, a.labels);
+        expect(tta.calls, 4 * plain.calls);
+      }
+    });
+
     test('rejilla igual a Python', () {
       expect(tileStarts(300, 512, 448), [0]);
       expect(tileStarts(512, 512, 448), [0]);

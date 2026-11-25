@@ -1,0 +1,485 @@
+{
+  "schema_version": 1,
+  "id": "c76151be",
+  "plan": {
+    "width_px": 1007,
+    "height_px": 797,
+    "image_sha256": "5a7dcc25efa8f9ea0beba7e618af958c7d9f71c7ccbd008a3eae02aca927e8c8",
+    "dpi": null
+  },
+  "scale": null,
+  "levels": [
+    {
+      "id": "L0",
+      "name": null,
+      "elevation_m": null,
+      "elements": [
+        {
+          "id": "w0002",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9780447559747082,
+          "start": [
+            363.5,
+            42.0
+          ],
+          "end": [
+            363.5,
+            61.0
+          ],
+          "thickness_px": 8.0,
+          "height_m": null
+        },
+        {
+          "id": "w0004",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9744414580495734,
+          "start": [
+            402.5,
+            43.173419773095624
+          ],
+          "end": [
+            402.5,
+            61.173419773095624
+          ],
+          "thickness_px": 5.0,
+          "height_m": null
+        },
+        {
+          "id": "w0005",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9969287753578217,
+          "start": [
+            164.0,
+            52.173419773095624
+          ],
+          "end": [
+            357.0,
+            52.173419773095624
+          ],
+          "thickness_px": 18.0,
+          "height_m": null
+        },
+        {
+          "id": "w0008",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9918355001905198,
+          "start": [
+            368.0,
+            52.173419773095624
+          ],
+          "end": [
+            773.0,
+            52.173419773095624
+          ],
+          "thickness_px": 18.0,
+          "height_m": null
+        },
+        {
+          "id": "w0010",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9770624204115435,
+          "start": [
+            778.5,
+            43.0
+          ],
+          "end": [
+            778.5,
+            62.0
+          ],
+          "thickness_px": 11.0,
+          "height_m": null
+        },
+        {
+          "id": "w0011",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9892333736952698,
+          "start": [
+            793.0,
+            43.0
+          ],
+          "end": [
+            793.0,
+            62.0
+          ],
+          "thickness_px": 18.0,
+          "height_m": null
+        },
+        {
+          "id": "w0012",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9752278415780319,
+          "start": [
+            819.5,
+            43.0
+          ],
+          "end": [
+            819.5,
+            62.0
+          ],
+          "thickness_px": 5.0,
+          "height_m": null
+        },
+        {
+          "id": "w0014",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9984278568515071,
+          "start": [
+            809.5,
+            44.0
+          ],
+          "end": [
+            809.5,
+            62.0
+          ],
+          "thickness_px": 17.0,
+          "height_m": null
+        },
+        {
+          "id": "w0015",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9984905309147305,
+          "start": [
+            829.5,
+            44.0
+          ],
+          "end": [
+            829.5,
+            62.0
+          ],
+          "thickness_px": 17.0,
+          "height_m": null
+        },
+        {
+          "id": "w0017",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9941383454472847,
+          "start": [
+            841.0,
+            52.173419773095624
+          ],
+          "end": [
+            966.0,
+            52.173419773095624
+          ],
+          "thickness_px": 18.0,
+          "height_m": null
+        },
+        {
+          "id": "w0018",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9964600257890152,
+          "start": [
+            46.5,
+            45.0
+          ],
+          "end": [
+            46.5,
+            753.5
+          ],
+          "thickness_px": 17.0,
+          "height_m": null
+        },
+        {
+          "id": "w0019",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9146763692411144,
+          "start": [
+            495.0,
+            69.5
+          ],
+          "end": [
+            513.0,
+            69.5
+          ],
+          "thickness_px": 17.0,
+          "height_m": null
+        },
+        {
+          "id": "w0020",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.995923784926521,
+          "start": [
+            957.5,
+            43.173419773095624
+          ],
+          "end": [
+            957.5,
+            754.0
+          ],
+          "thickness_px": 17.0,
+          "height_m": null
+        },
+        {
+          "id": "w0021",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9834982669434108,
+          "start": [
+            504.0,
+            160.0
+          ],
+          "end": [
+            504.0,
+            753.5
+          ],
+          "thickness_px": 18.0,
+          "height_m": null
+        },
+        {
+          "id": "w0023",
+          "kind": "wall",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9702274168008252,
+          "start": [
+            38.0,
+            744.5
+          ],
+          "end": [
+            947.5,
+            744.5
+          ],
+          "thickness_px": 18.0,
+          "height_m": null
+        },
+        {
+          "id": "d0001",
+          "kind": "door",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9220334744355098,
+          "footprint": [
+            495.0,
+            77.0,
+            513.0,
+            160.0
+          ],
+          "host_wall_id": "w0021",
+          "height_m": null,
+          "sill_height_m": null
+        },
+        {
+          "id": "n0001",
+          "kind": "window",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9936897982346412,
+          "footprint": [
+            68.0,
+            43.173419773095624,
+            164.0,
+            61.173419773095624
+          ],
+          "host_wall_id": "w0005",
+          "height_m": null,
+          "sill_height_m": null
+        },
+        {
+          "id": "c0001",
+          "kind": "column",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.6288890378788186,
+          "footprint": [
+            89.0,
+            711.0,
+            116.0,
+            738.0
+          ],
+          "round": true
+        },
+        {
+          "id": "s0001",
+          "kind": "stairs",
+          "source": {
+            "provenance": "aiDetected",
+            "model_id": "vision_ai_planos_int8",
+            "model_version": "0.2.0",
+            "model_training_data": "rendered",
+            "timestamp": "2026-11-25T00:38:21.676282Z",
+            "note": null
+          },
+          "confidence": 0.9802045996962734,
+          "footprint": [
+            820.0,
+            534.0,
+            931.0,
+            736.0
+          ]
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "type": "hosts",
+      "a": "w0021",
+      "b": "d0001",
+      "source": {
+        "provenance": "derived",
+        "model_id": null,
+        "model_version": null,
+        "model_training_data": null,
+        "timestamp": null,
+        "note": null
+      }
+    },
+    {
+      "type": "hosts",
+      "a": "w0005",
+      "b": "n0001",
+      "source": {
+        "provenance": "derived",
+        "model_id": null,
+        "model_version": null,
+        "model_training_data": null,
+        "timestamp": null,
+        "note": null
+      }
+    }
+  ],
+  "dimensions": [],
+  "source": {
+    "provenance": "derived",
+    "model_id": null,
+    "model_version": null,
+    "model_training_data": null,
+    "timestamp": "2026-11-25T00:38:21.689443Z",
+    "note": "Geometry Engine 0.2 (afinado)"
+  }
+}

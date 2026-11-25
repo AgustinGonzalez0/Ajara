@@ -3,6 +3,7 @@ library;
 
 import 'package:structura_model/structura_model.dart';
 
+import 'refine.dart';
 import 'segmentation.dart';
 import 'vectorizer.dart';
 
@@ -10,12 +11,19 @@ class ModelBuildResult {
   final BuildingModel model;
   final VectorizationResult vectorization;
   final List<ModelIssue> issues;
-  const ModelBuildResult(this.model, this.vectorization, this.issues);
+
+  /// Qué corrigió el afinado geométrico (null si se generó en modo rápido).
+  final RefineReport? refinement;
+  const ModelBuildResult(this.model, this.vectorization, this.issues, [this.refinement]);
 }
 
 class BuildingModelBuilder {
   final Vectorizer vectorizer;
-  const BuildingModelBuilder([this.vectorizer = const Vectorizer()]);
+
+  /// Afinado geométrico (esquinas, alineación, aberturas). Activado por defecto.
+  final bool refine;
+  final GeometryRefiner refiner;
+  const BuildingModelBuilder([this.vectorizer = const Vectorizer(), this.refine = true, this.refiner = const GeometryRefiner()]);
 
   ModelBuildResult build(
     SegmentationResult seg, {
@@ -26,14 +34,17 @@ class BuildingModelBuilder {
     PlanScale? scale,
   }) {
     final v = vectorizer.run(seg, source: detectorSource);
+    RefineResult? refined;
+    if (refine) refined = refiner.refine(v.elements);
     final model = BuildingModel(
       id: modelId,
       plan: PlanReference(widthPx: seg.width, heightPx: seg.height, imageSha256: imageSha256, dpi: dpi),
       scale: scale,
-      levels: [Level(id: 'L0', name: null, elements: v.elements)],
-      relations: v.relations,
-      source: Source(Provenance.derived, timestamp: DateTime.now().toUtc(), note: 'Geometry Engine 0.1'),
+      levels: [Level(id: 'L0', name: null, elements: refined?.elements ?? v.elements)],
+      relations: refined?.relations ?? v.relations,
+      source: Source(Provenance.derived,
+          timestamp: DateTime.now().toUtc(), note: refine ? 'Geometry Engine 0.2 (afinado)' : 'Geometry Engine 0.2 (rápido)'),
     );
-    return ModelBuildResult(model, v, model.validate());
+    return ModelBuildResult(model, v, model.validate(), refined?.report);
   }
 }

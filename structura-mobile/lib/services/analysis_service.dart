@@ -34,6 +34,9 @@ class AnalysisJob {
   final Map<String, Object?> modelJson;
   final String modelPath;
   final String runId;
+
+  /// Generación detallada: afinado geométrico (y TTA con IA). Más lenta, 3D más limpio.
+  final bool detailed;
   const AnalysisJob({
     required this.projectDir,
     required this.rasterPath,
@@ -43,6 +46,7 @@ class AnalysisJob {
     required this.modelJson,
     required this.modelPath,
     required this.runId,
+    this.detailed = true,
   });
 
   String get relDir => 'analysis/$runId';
@@ -112,7 +116,7 @@ const Map<String, Object?> classicEngineSummary = {
 Future<AnalysisRecord> executeClassicAnalysis(AnalysisJob job, {ProgressSink? onProgress, CancellationToken? token}) async {
   final started = DateTime.now().toUtc();
   AnalysisRecord record(AnalysisStatus s, {Map<String, int> counts = const {}, List<String> warnings = const [],
-          List<Map<String, Object?>> timings = const [], String? error}) =>
+          List<Map<String, Object?>> timings = const [], String? error, Map<String, Object?>? refinement}) =>
       AnalysisRecord(
           id: job.runId,
           planId: job.planId,
@@ -123,7 +127,8 @@ Future<AnalysisRecord> executeClassicAnalysis(AnalysisJob job, {ProgressSink? on
           counts: counts,
           warnings: warnings,
           timings: timings,
-          error: error);
+          error: error,
+          refinement: refinement);
   void report(int i, String id, String label, double f, [String? msg]) =>
       onProgress?.call(ProgressEvent(id, label, i, 3, f, msg));
   try {
@@ -135,8 +140,8 @@ Future<AnalysisRecord> executeClassicAnalysis(AnalysisJob job, {ProgressSink? on
     final tDetect = sw.elapsedMilliseconds;
     report(0, 'segment', 'Detección clásica (sin IA)', 1);
     token?.throwIfCancelled();
-    report(1, 'vectorize', 'Vectorización y Building Model', 0);
-    final build = const BuildingModelBuilder().build(det.segmentation,
+    report(1, 'vectorize', job.detailed ? 'Vectorización y afinado' : 'Vectorización y Building Model', 0);
+    final build = BuildingModelBuilder(const Vectorizer(), job.detailed).build(det.segmentation,
         modelId: job.runId,
         detectorSource: Source(Provenance.classicDetected, modelId: 'classic_cv', modelVersion: '0.1.0', timestamp: started),
         imageSha256: job.rasterSha256,
@@ -161,9 +166,10 @@ Future<AnalysisRecord> executeClassicAnalysis(AnalysisJob job, {ProgressSink? on
       {'stage': 'vectorize', 'ms': tVector},
       {'stage': 'mesh', 'ms': tMesh},
     ];
+    final refinement = build.refinement?.toJson();
     writeAnalysisOutputs(job, det.segmentation, build.model, mesh, classicEngineSummary, timings, warnings, counts, started,
-        extra: {'classic_diagnostics': det.diagnostics.toJson()});
-    return record(AnalysisStatus.completed, counts: counts, warnings: warnings, timings: timings);
+        extra: {'classic_diagnostics': det.diagnostics.toJson(), 'detailed': job.detailed, 'refinement': ?refinement});
+    return record(AnalysisStatus.completed, counts: counts, warnings: warnings, timings: timings, refinement: refinement);
   } on CancelledException {
     return record(AnalysisStatus.cancelled, error: 'Cancelado por el usuario');
   } on Object catch (e) {
@@ -215,7 +221,7 @@ Future<AnalysisRecord> executeAnalysis(
   final d = inferencer.descriptor;
   final started = DateTime.now().toUtc();
   AnalysisRecord record(AnalysisStatus s, {Map<String, int> counts = const {}, List<String> warnings = const [],
-          List<Map<String, Object?>> timings = const [], String? error}) =>
+          List<Map<String, Object?>> timings = const [], String? error, Map<String, Object?>? refinement}) =>
       AnalysisRecord(
           id: job.runId,
           planId: job.planId,
@@ -226,10 +232,14 @@ Future<AnalysisRecord> executeAnalysis(
           counts: counts,
           warnings: warnings,
           timings: timings,
-          error: error);
+          error: error,
+          refinement: refinement);
   try {
     final raster = decodeRaster(await File(job.rasterPath).readAsBytes());
-    final result = await const AnalysisPipeline().run(
+    final result = await AnalysisPipeline(
+      segmenter: TiledSegmenter(tta: job.detailed),
+      modelBuilder: BuildingModelBuilder(const Vectorizer(), job.detailed),
+    ).run(
       raster: raster,
       inferencer: inferencer,
       buildingModelId: job.runId,
@@ -239,9 +249,12 @@ Future<AnalysisRecord> executeAnalysis(
       onProgress: onProgress,
     );
     final timings = result.timings.map((t) => t.toJson()).toList();
+    final refinement = result.build.refinement?.toJson();
     writeAnalysisOutputs(job, result.segmentation, result.build.model, result.mesh, modelSummary(d), timings,
-        result.warnings, result.elementCounts, started);
-    return record(AnalysisStatus.completed, counts: result.elementCounts, warnings: result.warnings, timings: timings);
+        result.warnings, result.elementCounts, started,
+        extra: {'detailed': job.detailed, 'tta': job.detailed, 'refinement': ?refinement});
+    return record(AnalysisStatus.completed,
+        counts: result.elementCounts, warnings: result.warnings, timings: timings, refinement: refinement);
   } on CancelledException {
     return record(AnalysisStatus.cancelled, error: 'Cancelado por el usuario');
   } on StageFailure catch (e) {

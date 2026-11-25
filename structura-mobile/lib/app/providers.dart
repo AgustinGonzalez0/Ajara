@@ -113,14 +113,23 @@ class AppSettings {
   final double pdfDpi;
   final bool darkMode;
   final DefaultEngine engine;
-  const AppSettings(
-      {this.onboardingDone = false, this.pdfDpi = defaultPdfDpi, this.darkMode = true, this.engine = DefaultEngine.classic});
 
-  AppSettings copyWith({bool? onboardingDone, double? pdfDpi, bool? darkMode, DefaultEngine? engine}) => AppSettings(
-      onboardingDone: onboardingDone ?? this.onboardingDone,
-      pdfDpi: pdfDpi ?? this.pdfDpi,
-      darkMode: darkMode ?? this.darkMode,
-      engine: engine ?? this.engine);
+  /// Generación detallada del 3D (afinado geométrico; con IA, 4 pasadas). Por defecto sí.
+  final bool detailed3d;
+  const AppSettings(
+      {this.onboardingDone = false,
+      this.pdfDpi = defaultPdfDpi,
+      this.darkMode = true,
+      this.engine = DefaultEngine.classic,
+      this.detailed3d = true});
+
+  AppSettings copyWith({bool? onboardingDone, double? pdfDpi, bool? darkMode, DefaultEngine? engine, bool? detailed3d}) =>
+      AppSettings(
+          onboardingDone: onboardingDone ?? this.onboardingDone,
+          pdfDpi: pdfDpi ?? this.pdfDpi,
+          darkMode: darkMode ?? this.darkMode,
+          engine: engine ?? this.engine,
+          detailed3d: detailed3d ?? this.detailed3d);
 }
 
 class SettingsNotifier extends Notifier<AppSettings> {
@@ -133,7 +142,13 @@ class SettingsNotifier extends Notifier<AppSettings> {
       pdfDpi: p.getDouble('pdf_dpi') ?? defaultPdfDpi,
       darkMode: p.getBool('dark_mode') ?? true,
       engine: p.getString('default_engine') == 'ai' ? DefaultEngine.ai : DefaultEngine.classic,
+      detailed3d: p.getBool('detailed_3d') ?? true,
     );
+  }
+
+  Future<void> setDetailed3d(bool v) async {
+    await _p.setBool('detailed_3d', v);
+    state = state.copyWith(detailed3d: v);
   }
 
   Future<void> setEngine(DefaultEngine e) async {
@@ -209,6 +224,7 @@ class AnalysisController extends Notifier<AnalysisState> {
       modelJson: model == null ? const {} : _descriptorJson(model),
       modelPath: model?.path ?? '',
       runId: newRunId(),
+      detailed: ref.read(settingsProvider).detailed3d,
     );
     state = const AnalysisState(phase: AnalysisPhase.running);
     final log = <String, ProgressEvent>{};

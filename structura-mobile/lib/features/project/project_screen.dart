@@ -605,6 +605,18 @@ class _InfoStrip extends StatelessWidget {
           const SizedBox(height: Gap.sm),
         ],
         if (chips.isNotEmpty) Wrap(spacing: 6, runSpacing: 6, children: chips),
+      if (a != null && a.refinementSummary.isNotEmpty) ...[
+        const SizedBox(height: Gap.sm),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.auto_fix_high_rounded, size: 16, color: StructuraColors.teal),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text('Modelo afinado: ${a.refinementSummary.join(' · ')}',
+                key: const Key('refinement_summary'),
+                style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+          ),
+        ]),
+      ],
         if (a == null && plan != null && !running)
           Text(
             'Plano listo · ${plan.width}×${plan.height} px. El modelo 3D se genera en segundos, sin conexión.',

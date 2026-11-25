@@ -62,6 +62,15 @@ class SettingsScreen extends ConsumerWidget {
                   ]),
                 ),
                 const Divider(),
+                SwitchListTile(
+                  key: const Key('detailed_setting'),
+                  title: const Text('Modelo 3D detallado'),
+                  subtitle: const Text('Cierra esquinas, alinea muros, encaja aberturas y arma el piso real. '
+                      'Con IA analiza cada parte 4 veces. Tarda un poco más; recomendado.'),
+                  value: s.detailed3d,
+                  onChanged: (v) => ref.read(settingsProvider.notifier).setDetailed3d(v),
+                ),
+                const Divider(),
                 ListTile(
                   title: const Text('Resolución de PDF por defecto'),
                   subtitle: const Text('200 DPI coincide con el dataset de entrenamiento'),

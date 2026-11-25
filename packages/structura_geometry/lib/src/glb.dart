@@ -11,7 +11,7 @@ import 'dart:typed_data';
 import 'mesh.dart';
 
 const Map<String, List<double>> categoryColors = {
-  'floor': [0.16, 0.18, 0.21, 1],
+  'floor': [0.52, 0.49, 0.44, 1], // contrapiso: visible en tema claro y oscuro
   'wall': [0.86, 0.87, 0.89, 1],
   'door': [0.24, 0.70, 0.29, 1],
   'window': [0.45, 0.70, 0.95, 0.5],

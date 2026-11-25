@@ -283,6 +283,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   if (selected != null)
                     _SelectionCard(
                       element: selected,
+                      scale: d.model?.scale,
                       busy: _saving,
                       onClose: () => setState(() => _selected = null),
                       onDelete: () => _correct(DeleteElement(selected.id),
@@ -350,7 +351,23 @@ class _SelectionCard extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onDelete;
   final VoidCallback? onRetype;
-  const _SelectionCard({required this.element, required this.busy, required this.onClose, required this.onDelete, this.onRetype});
+
+  /// Escala verificada (null = medidas en píxeles del plano).
+  final PlanScale? scale;
+  const _SelectionCard(
+      {required this.element, required this.busy, required this.onClose, required this.onDelete, this.onRetype, this.scale});
+
+  String _len(double px) {
+    final m = scale?.pxToMeters(px);
+    return m == null ? '${px.toStringAsFixed(0)} px' : '${m.toStringAsFixed(2).replaceAll('.', ',')} m';
+  }
+
+  String get _measures {
+    final e = element;
+    if (e is Wall) return 'Largo ${_len(e.lengthPx)} · espesor ${_len(e.thicknessPx)}';
+    final b = e.bounds;
+    return '${_len(b.width)} × ${_len(b.height)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -378,7 +395,9 @@ class _SelectionCard extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${name[0].toUpperCase()}${name.substring(1)} · ${e.id}', style: t.textTheme.titleSmall),
-              Text(origin, style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant)),
+              Text('$origin · $_measures',
+                  key: const Key('selection_measures'),
+                  style: t.textTheme.bodySmall?.copyWith(color: t.colorScheme.onSurfaceVariant, fontFeatures: tabular)),
             ]),
           ),
           if (e.confidence != null) ConfidenceBar(e.confidence),

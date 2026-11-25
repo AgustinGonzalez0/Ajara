@@ -205,7 +205,14 @@ class MeshBuilder {
           if (o.type == OpeningType.door) {
             // Dintel sobre la puerta; el vano queda libre.
             parts['wall']!.addBox(r.left * k, r.top * k, r.right * k, r.bottom * k, a.doorHeight, a.wallHeight, o.id);
-            parts['door']!.addBox(r.left * k, r.top * k, r.right * k, r.bottom * k, 0, a.doorHeight * 0.02, o.id);
+            // Hoja de puerta: panel delgado centrado en el espesor del muro.
+            if (r.width >= r.height) {
+              final cz = r.center.y, t = r.height * 0.18;
+              parts['door']!.addBox(r.left * k, (cz - t) * k, r.right * k, (cz + t) * k, 0, a.doorHeight, o.id);
+            } else {
+              final cx = r.center.x, t = r.width * 0.18;
+              parts['door']!.addBox((cx - t) * k, r.top * k, (cx + t) * k, r.bottom * k, 0, a.doorHeight, o.id);
+            }
           } else {
             parts['wall']!.addBox(r.left * k, r.top * k, r.right * k, r.bottom * k, 0, a.windowSill, o.id);
             parts['wall']!.addBox(r.left * k, r.top * k, r.right * k, r.bottom * k, a.windowHead, a.wallHeight, o.id);
@@ -240,12 +247,91 @@ class MeshBuilder {
       }
     }
     if (includeFloor && model.allElements.isNotEmpty) {
-      final b = model.allElements.map((e) => e.bounds);
-      final l = b.map((r) => r.left).reduce(math.min), t = b.map((r) => r.top).reduce(math.min);
-      final rr = b.map((r) => r.right).reduce(math.max), bb = b.map((r) => r.bottom).reduce(math.max);
-      parts['floor']!.addBox(l * k, t * k, rr * k, bb * k, -a.wallHeight * 0.01, 0, 'floor');
+      for (final r in floorRects(model)) {
+        parts['floor']!.addBox(r.left * k, r.top * k, r.right * k, r.bottom * k, -a.wallHeight * 0.01, 0, 'floor');
+      }
     }
     parts.removeWhere((_, p) => p.triangleCount == 0);
     return BuildingMesh(parts, a);
   }
+}
+
+/// Piso solo dentro del edificio: se rasteriza la planta en celdas de medio espesor de
+/// muro, se rellena desde el borde el exterior (muros, columnas y aberturas hacen de
+/// barrera) y el resto se cubre con rectángulos. Si el contorno no cierra (planta
+/// incompleta), el relleno se escapa y se usa el rectángulo envolvente.
+List<Rect2> floorRects(BuildingModel model) {
+  final els = model.allElements.where((e) => e is Wall || e is ColumnElement || e is Opening).toList();
+  final all = model.allElements.map((e) => e.bounds).toList();
+  if (all.isEmpty) return const [];
+  final l = all.map((r) => r.left).reduce(math.min), t = all.map((r) => r.top).reduce(math.min);
+  final rr = all.map((r) => r.right).reduce(math.max), bb = all.map((r) => r.bottom).reduce(math.max);
+  final bbox = [Rect2(l, t, rr, bb)];
+  final ts = model.allElements.whereType<Wall>().map((w) => w.thicknessPx).toList()..sort();
+  if (ts.isEmpty || els.isEmpty) return bbox;
+  final cell = math.max(1.0, ts[ts.length ~/ 2] / 2);
+  final gw = ((rr - l) / cell).ceil() + 3, gh = ((bb - t) / cell).ceil() + 3;
+  if (gw * gh > 4000000) return bbox;
+  final block = Uint8List(gw * gh);
+  int cx(double x) => ((x - l) / cell).floor() + 1;
+  int cy(double y) => ((y - t) / cell).floor() + 1;
+  for (final e in els) {
+    final r = e.bounds;
+    for (var y = cy(r.top); y <= cy(r.bottom - 1e-6); y++) {
+      for (var x = cx(r.left); x <= cx(r.right - 1e-6); x++) {
+        if (x >= 0 && y >= 0 && x < gw && y < gh) block[y * gw + x] = 1;
+      }
+    }
+  }
+  // Relleno del exterior desde el borde (4-vecindad).
+  final outside = Uint8List(gw * gh);
+  final stack = <int>[0];
+  outside[0] = 1;
+  while (stack.isNotEmpty) {
+    final i = stack.removeLast();
+    final x = i % gw, y = i ~/ gw;
+    for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
+      if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+      final j = ny * gw + nx;
+      if (outside[j] == 1 || block[j] == 1) continue;
+      outside[j] = 1;
+      stack.add(j);
+    }
+  }
+  var inside = 0;
+  for (var i = 0; i < outside.length; i++) {
+    if (outside[i] == 0 && block[i] == 0) inside++;
+  }
+  // Con menos del 25 % de la caja como interior, la planta no cierra: rectángulo envolvente.
+  if (inside * cell * cell < 0.25 * (rr - l) * (bb - t)) return bbox;
+  // Corridas por fila fusionadas verticalmente cuando coinciden.
+  final rects = <Rect2>[];
+  final open = <(int, int), int>{}; // (x0, x1) -> fila de inicio
+  for (var y = 0; y <= gh; y++) {
+    final runs = <(int, int)>{};
+    if (y < gh) {
+      var x = 0;
+      while (x < gw) {
+        if (outside[y * gw + x] == 0) {
+          final x0 = x;
+          while (x < gw && outside[y * gw + x] == 0) {
+            x++;
+          }
+          runs.add((x0, x));
+        } else {
+          x++;
+        }
+      }
+    }
+    for (final key in open.keys.toList()) {
+      if (!runs.contains(key)) {
+        final y0 = open.remove(key)!;
+        rects.add(Rect2(l + (key.$1 - 1) * cell, t + (y0 - 1) * cell, l + (key.$2 - 1) * cell, t + (y - 1) * cell));
+      }
+    }
+    for (final run in runs) {
+      open.putIfAbsent(run, () => y);
+    }
+  }
+  return rects;
 }

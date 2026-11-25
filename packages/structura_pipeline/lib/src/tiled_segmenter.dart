@@ -35,7 +35,14 @@ Float32List blendWindow1D(int tile, int overlap) {
 }
 
 class TiledSegmenter {
-  const TiledSegmenter();
+  /// Aumento en inferencia (TTA): cada tile se analiza original y espejado en
+  /// horizontal, vertical y ambos ejes; las probabilidades se promedian. ~4× más lento,
+  /// corrige errores aislados (el modelo se entrenó con esos mismos espejos).
+  final bool tta;
+  const TiledSegmenter({this.tta = false});
+
+  static const _identity = [(false, false)];
+  static const _flips = [(false, false), (true, false), (false, true), (true, true)];
 
   Future<SegmentationResult> segment(
     PlanRaster raster,
@@ -59,7 +66,10 @@ class TiledSegmenter {
     var bandTop = 0;
     var done = 0;
     final input = Float32List(3 * tile * tile);
+    final flipped = Float32List(3 * tile * tile);
     final plane = tile * tile;
+    final tileProb = Float32List(c * plane);
+    final variants = tta ? _flips : _identity;
 
     void finalizeRows(int from, int to) {
       for (var y = from; y < to; y++) {
@@ -113,28 +123,58 @@ class TiledSegmenter {
             src += 3;
           }
         }
-        final logits = await inferencer.infer(input);
-        if (logits.length != c * plane) {
-          throw StateError('El modelo devolvió ${logits.length} valores; se esperaban ${c * plane}');
+        tileProb.fillRange(0, tileProb.length, 0);
+        for (final (fx, fy) in variants) {
+          final Float32List inp;
+          if (!fx && !fy) {
+            inp = input;
+          } else {
+            for (var ch2 = 0; ch2 < 3; ch2++) {
+              final base = ch2 * plane;
+              for (var ty = 0; ty < tile; ty++) {
+                final sy = fy ? tile - 1 - ty : ty;
+                for (var tx = 0; tx < tile; tx++) {
+                  flipped[base + ty * tile + tx] = input[base + sy * tile + (fx ? tile - 1 - tx : tx)];
+                }
+              }
+            }
+            inp = flipped;
+          }
+          final logits = await inferencer.infer(inp);
+          if (logits.length != c * plane) {
+            throw StateError('El modelo devolvió ${logits.length} valores; se esperaban ${c * plane}');
+          }
+          final share = 1.0 / variants.length;
+          for (var vy = 0; vy < tile; vy++) {
+            final oy = fy ? tile - 1 - vy : vy;
+            for (var vx = 0; vx < tile; vx++) {
+              final ox = fx ? tile - 1 - vx : vx;
+              final p = vy * tile + vx;
+              var mx = logits[p];
+              for (var k = 1; k < c; k++) {
+                final v = logits[k * plane + p];
+                if (v > mx) mx = v;
+              }
+              var sum = 0.0;
+              for (var k = 0; k < c; k++) {
+                sum += math.exp(logits[k * plane + p] - mx);
+              }
+              final q = oy * tile + ox;
+              for (var k = 0; k < c; k++) {
+                tileProb[k * plane + q] += math.exp(logits[k * plane + p] - mx) / sum * share;
+              }
+            }
+          }
         }
         for (var ty = 0; ty < ch; ty++) {
           final by = y + ty - bandTop;
           final wy = win[ty];
           for (var tx = 0; tx < cw; tx++) {
             final p = ty * tile + tx;
-            var mx = logits[p];
-            for (var k = 1; k < c; k++) {
-              final v = logits[k * plane + p];
-              if (v > mx) mx = v;
-            }
-            var sum = 0.0;
-            for (var k = 0; k < c; k++) {
-              sum += math.exp(logits[k * plane + p] - mx);
-            }
             final wv = wy * win[tx];
             final wi = by * w + x + tx;
             for (var k = 0; k < c; k++) {
-              acc[k * tile * w + wi] += math.exp(logits[k * plane + p] - mx) / sum * wv;
+              acc[k * tile * w + wi] += tileProb[k * plane + p] * wv;
             }
             wsum[wi] += wv;
           }
